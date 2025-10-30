@@ -1,0 +1,50 @@
+[Unit]
+Description=Oracle Client - Price Feed Service
+Documentation=https://github.com/jacklevin74/oracle
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=yakovlevin
+Group=staff
+WorkingDirectory=/Users/yakovlevin/dev/oracles/oracle
+
+# Option 1: Interactive start (prompts for private key)
+# Uncomment this line to use interactive prompt:
+# ExecStart=/Users/yakovlevin/dev/oracles/oracle/app/systemd-start.sh
+
+# Option 2: Use environment variable for private key (recommended for production)
+# Set your private key in environment file: /etc/oracle-client/private.env
+# Format: ORACLE_PRIVATE_KEY=your_base58_private_key_here
+EnvironmentFile=-/etc/oracle-client/private.env
+ExecStart=/usr/local/bin/node /Users/yakovlevin/dev/oracles/oracle/app/pyth_sim.cjs
+
+# Optional: Enable verbose logging
+# ExecStart=/usr/local/bin/node /Users/yakovlevin/dev/oracles/oracle/app/pyth_sim.cjs --verbose
+
+# Restart configuration
+Restart=on-failure
+RestartSec=10
+StartLimitInterval=200
+StartLimitBurst=5
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/Users/yakovlevin/dev/oracles/oracle
+
+# Resource limits
+LimitNOFILE=65536
+MemoryLimit=1G
+CPUQuota=200%
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=oracle-client
+
+[Install]
+WantedBy=multi-user.target
