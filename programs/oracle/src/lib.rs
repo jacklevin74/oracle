@@ -80,6 +80,111 @@ pub mod oracle {
         Ok(())
     }
 
+    pub fn batch_set_prices(
+        ctx: Context<SetPrice>,
+        index: u8,
+        btc_price: i64,
+        eth_price: i64,
+        sol_price: i64,
+        hype_price: i64,
+        client_ts_ms: i64,
+    ) -> Result<()> {
+        let signer = ctx.accounts.signer.key();
+
+        let expected = match index {
+            1 => Pubkey::from_str(PARAM1_UPDATER).map_err(|_| error!(OracleError::BadKey))?,
+            2 => Pubkey::from_str(PARAM2_UPDATER).map_err(|_| error!(OracleError::BadKey))?,
+            3 => Pubkey::from_str(PARAM3_UPDATER).map_err(|_| error!(OracleError::BadKey))?,
+            4 => Pubkey::from_str(PARAM4_UPDATER).map_err(|_| error!(OracleError::BadKey))?,
+            _ => return err!(OracleError::BadIndex),
+        };
+        require_keys_eq!(signer, expected, OracleError::UnauthorizedForIndex);
+
+        let s = &mut ctx.accounts.state;
+        let slot = Clock::get()?.slot;
+
+        // Update all 4 assets in one instruction
+        match index {
+            1 => {
+                s.btc.param1 = btc_price;
+                s.btc.ts1 = client_ts_ms;
+                s.eth.param1 = eth_price;
+                s.eth.ts1 = client_ts_ms;
+                s.sol.param1 = sol_price;
+                s.sol.ts1 = client_ts_ms;
+                s.hype.param1 = hype_price;
+                s.hype.ts1 = client_ts_ms;
+            }
+            2 => {
+                s.btc.param2 = btc_price;
+                s.btc.ts2 = client_ts_ms;
+                s.eth.param2 = eth_price;
+                s.eth.ts2 = client_ts_ms;
+                s.sol.param2 = sol_price;
+                s.sol.ts2 = client_ts_ms;
+                s.hype.param2 = hype_price;
+                s.hype.ts2 = client_ts_ms;
+            }
+            3 => {
+                s.btc.param3 = btc_price;
+                s.btc.ts3 = client_ts_ms;
+                s.eth.param3 = eth_price;
+                s.eth.ts3 = client_ts_ms;
+                s.sol.param3 = sol_price;
+                s.sol.ts3 = client_ts_ms;
+                s.hype.param3 = hype_price;
+                s.hype.ts3 = client_ts_ms;
+            }
+            4 => {
+                s.btc.param4 = btc_price;
+                s.btc.ts4 = client_ts_ms;
+                s.eth.param4 = eth_price;
+                s.eth.ts4 = client_ts_ms;
+                s.sol.param4 = sol_price;
+                s.sol.ts4 = client_ts_ms;
+                s.hype.param4 = hype_price;
+                s.hype.ts4 = client_ts_ms;
+            }
+            _ => unreachable!(),
+        }
+
+        // Emit events for all assets
+        emit!(PriceUpdated {
+            asset: Asset::Btc as u8,
+            index,
+            price: btc_price,
+            decimals: s.decimals,
+            client_ts_ms,
+            slot,
+        });
+        emit!(PriceUpdated {
+            asset: Asset::Eth as u8,
+            index,
+            price: eth_price,
+            decimals: s.decimals,
+            client_ts_ms,
+            slot,
+        });
+        emit!(PriceUpdated {
+            asset: Asset::Sol as u8,
+            index,
+            price: sol_price,
+            decimals: s.decimals,
+            client_ts_ms,
+            slot,
+        });
+        emit!(PriceUpdated {
+            asset: Asset::Hype as u8,
+            index,
+            price: hype_price,
+            decimals: s.decimals,
+            client_ts_ms,
+            slot,
+        });
+
+        Ok(())
+    }
+
     pub fn set_update_authority(ctx: Context<SetUpdateAuthority>, new_auth: Pubkey) -> Result<()> {
         let s = &mut ctx.accounts.state;
         require_keys_eq!(ctx.accounts.signer.key(), s.update_authority, OracleError::Unauthorized);

@@ -52,10 +52,11 @@ const STATE_SEED = Buffer.from("state_v2"); // new PDA seed
 const DECIMALS = 6;
 const COMPUTE_UNIT_LIMIT = 50_000;
 
-/* set_price(asset:u8, index:u8, price:i64, ts:i64) */
+/* Instruction discriminators */
 const DISC = {
   initialize: Uint8Array.from([175, 175, 109, 31, 13, 152, 155, 237]),
   set_price:  Uint8Array.from([16, 19, 182, 8, 149, 83, 72, 181]),
+  batch_set_prices: Uint8Array.from([22, 37, 238, 178, 182, 181, 83, 149]),
 };
 
 /* Allowed updaters → index (must match on-chain allow-list) */
@@ -131,6 +132,22 @@ function ixSetPrice(asset, index, priceI64, clientTsMs, programId, statePda, sig
     u8(asset),
     u8(index),
     i64(priceI64),
+    i64(clientTsMs),
+  ]);
+  const keys = [
+    { pubkey: statePda, isSigner: false, isWritable: true },
+    { pubkey: signer, isSigner: true, isWritable: false },
+  ];
+  return new TransactionInstruction({ programId, keys, data });
+}
+function ixBatchSetPrices(index, btcPrice, ethPrice, solPrice, hypePrice, clientTsMs, programId, statePda, signer) {
+  const data = Buffer.concat([
+    Buffer.from(DISC.batch_set_prices),
+    u8(index),
+    i64(btcPrice),
+    i64(ethPrice),
+    i64(solPrice),
+    i64(hypePrice),
     i64(clientTsMs),
   ]);
   const keys = [
@@ -485,28 +502,36 @@ function ixSetPrice(asset, index, priceI64, clientTsMs, programId, statePda, sig
       // fresh blockhash every send (<= 2s old)
       await ensureBlockhashFresh();
 
-      // Build batch tx with compute budget limit
+      // Build batch tx with compute budget limit - use single batch instruction
       const tx = new Transaction();
       tx.add(ComputeBudgetProgram.setComputeUnitLimit({ units: COMPUTE_UNIT_LIMIT }));
 
-      for (const { sym, candI64 } of fresh) {
-        const asset =
-          sym === "BTC" ? ASSETS.BTC :
-          sym === "ETH" ? ASSETS.ETH :
-          sym === "SOL" ? ASSETS.SOL :
-          ASSETS.HYPE;
-        tx.add(
-          ixSetPrice(
-            asset,
-            index,
-            candI64,
-            clientTsMs,
-            PROGRAM_ID,
-            statePda,
-            payer.publicKey
-          )
-        );
-      }
+      // Collect prices for all 4 assets (use last sent value if asset not in fresh list)
+      const btcData = fresh.find(f => f.sym === "BTC");
+      const ethData = fresh.find(f => f.sym === "ETH");
+      const solData = fresh.find(f => f.sym === "SOL");
+      const hypeData = fresh.find(f => f.sym === "HYPE");
+
+      const btcPrice = btcData ? btcData.candI64 : (lastSentI64.BTC || 0);
+      const ethPrice = ethData ? ethData.candI64 : (lastSentI64.ETH || 0);
+      const solPrice = solData ? solData.candI64 : (lastSentI64.SOL || 0);
+      const hypePrice = hypeData ? hypeData.candI64 : (lastSentI64.HYPE || 0);
+
+      // Single batch instruction for all 4 assets
+      tx.add(
+        ixBatchSetPrices(
+          index,
+          btcPrice,
+          ethPrice,
+          solPrice,
+          hypePrice,
+          clientTsMs,
+          PROGRAM_ID,
+          statePda,
+          payer.publicKey
+        )
+      );
+
       tx.feePayer = payer.publicKey;
       tx.recentBlockhash = bhCache.blockhash;
 
