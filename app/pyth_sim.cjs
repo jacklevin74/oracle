@@ -248,6 +248,70 @@ function ixBatchSetPrices(index, btcPrice, ethPrice, solPrice, hypePrice, client
   const shouldDaemonize = args.includes("--prompt") || args.includes("-p");
   const isForkedChild = process.env.__ORACLE_FORKED === '1';
 
+  // Lock file to prevent multiple instances
+  const LOCK_FILE = path.join(__dirname, '.oracle.lock');
+
+  // Check for existing lock file
+  if (fs.existsSync(LOCK_FILE)) {
+    let lockData;
+    try {
+      lockData = JSON.parse(fs.readFileSync(LOCK_FILE, 'utf8'));
+      const lockPid = lockData.pid;
+
+      // Check if the process is still running
+      let isRunning = false;
+      try {
+        process.kill(lockPid, 0); // Signal 0 checks if process exists
+        isRunning = true;
+      } catch (e) {
+        // Process not running, stale lock file
+        isRunning = false;
+      }
+
+      if (isRunning) {
+        console.error(`\n❌ ERROR: Oracle client is already running`);
+        console.error(`   PID: ${lockPid}`);
+        console.error(`   Started: ${lockData.started}`);
+        console.error(`\n   To stop the running instance:`);
+        console.error(`   kill ${lockPid}`);
+        console.error(`\n   To force start (if lock is stale):`);
+        console.error(`   rm ${LOCK_FILE}\n`);
+        process.exit(1);
+      } else {
+        // Stale lock file, remove it
+        fs.unlinkSync(LOCK_FILE);
+      }
+    } catch (e) {
+      // Invalid lock file, remove it
+      fs.unlinkSync(LOCK_FILE);
+    }
+  }
+
+  // Create lock file
+  const lockData = {
+    pid: process.pid,
+    started: new Date().toISOString(),
+    args: args
+  };
+  fs.writeFileSync(LOCK_FILE, JSON.stringify(lockData, null, 2));
+
+  // Remove lock file on exit
+  const removeLock = () => {
+    try {
+      if (fs.existsSync(LOCK_FILE)) {
+        fs.unlinkSync(LOCK_FILE);
+      }
+    } catch (e) {
+      // Ignore errors during cleanup
+    }
+  };
+
+  process.on('exit', removeLock);
+  process.on('SIGTERM', () => {
+    removeLock();
+    process.exit(0);
+  });
+
   // Setup logging
   let logStream = null;
   let initializationComplete = false;
@@ -942,6 +1006,9 @@ function ixBatchSetPrices(index, btcPrice, ethPrice, solPrice, hypePrice, client
       if (logStream) {
         logStream.end();
       }
+
+      // Remove lock file
+      removeLock();
     } catch {}
     process.exit(0);
   });
