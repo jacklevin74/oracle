@@ -138,23 +138,45 @@ function startWithPM2(privateKey, processName, verbose) {
     // Use stdin wrapper to avoid environment variables completely
     const wrapperPath = path.join(__dirname, 'pm2-stdin-wrapper.cjs');
 
-    // Build PM2 start command with wrapper
-    let cmd = `echo "${privateKey}" | pm2 start ${wrapperPath} --name ${processName} --time --log-date-format "YYYY-MM-DD HH:mm:ss Z"`;
-
-    // Add verbose flag if needed
-    if (verbose) {
-      cmd += ' -- --verbose';
-    }
-
     log(`Starting oracle client under PM2...`);
     log(`Process name: ${colors.yellow}${processName}${colors.reset}`);
     log(`Verbose mode: ${verbose ? colors.green + 'enabled' : colors.gray + 'disabled'}${colors.reset}`);
-    log(`${colors.green}Using stdin pipe (no environment variables)${colors.reset}`);
+    log(`${colors.green}Using stdin pipe (no environment variables, no shell history)${colors.reset}`);
 
-    // NO environment variable for private key!
-    exec(cmd, (err, stdout, stderr) => {
-      if (err) {
-        reject(err);
+    // Build PM2 arguments
+    const pm2Args = [
+      'start',
+      wrapperPath,
+      '--name', processName,
+      '--time',
+      '--log-date-format', 'YYYY-MM-DD HH:mm:ss Z'
+    ];
+
+    // Add script arguments if verbose
+    if (verbose) {
+      pm2Args.push('--', '--verbose');
+    }
+
+    // Spawn PM2 with stdin pipe (no shell, no echo, no history!)
+    const { spawn } = require('child_process');
+    const pm2Process = spawn('pm2', pm2Args, {
+      stdio: ['pipe', 'pipe', 'pipe']
+    });
+
+    let stdout = '';
+    let stderr = '';
+
+    pm2Process.stdout.on('data', (data) => {
+      stdout += data.toString();
+    });
+
+    pm2Process.stderr.on('data', (data) => {
+      stderr += data.toString();
+    });
+
+    pm2Process.on('close', (code) => {
+      if (code !== 0) {
+        reject(new Error(`PM2 exited with code ${code}\n${stderr}`));
         return;
       }
 
@@ -167,6 +189,11 @@ function startWithPM2(privateKey, processName, verbose) {
 
       resolve();
     });
+
+    // Write private key to PM2's stdin and close it
+    // This gets passed through to the wrapper without touching shell/history
+    pm2Process.stdin.write(privateKey + '\n');
+    pm2Process.stdin.end();
   });
 }
 
