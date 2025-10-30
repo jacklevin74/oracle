@@ -313,11 +313,25 @@ function ixBatchSetPrices(index, btcPrice, ethPrice, solPrice, hypePrice, client
       payer = parsePrivateKey(privateKey);
       payerPub = payer.publicKey.toBase58();
       index = ALLOWED.get(payerPub);
+
+      // SECURITY: Clear the private key from memory immediately after use
+      // Overwrite the string with zeros
+      if (typeof privateKey === 'string') {
+        privateKey = '0'.repeat(privateKey.length);
+      }
+      privateKey = null;
+
+      // Clear from environment variable to prevent /proc exposure
+      if (privateKeyFromEnv) {
+        delete process.env.ORACLE_PRIVATE_KEY;
+      }
+
       if (![1, 2, 3, 4].includes(index)) {
         console.error("Public key not authorized for any index:", payerPub);
         process.exit(1);
       }
       console.log(`✓ Authorized public key ${payerPub} for index ${index}.`);
+      console.log(`✓ Private key cleared from memory and environment`);
     } catch (e) {
       console.error("Failed to parse private key:", e.message);
       console.error("Expected base58 string or JSON array [1,2,3,...]");
