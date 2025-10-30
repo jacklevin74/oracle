@@ -238,6 +238,7 @@ function ixBatchSetPrices(index, btcPrice, ethPrice, solPrice, hypePrice, client
   /* CLI */
   const args = process.argv.slice(2);
   const isDryRun = args.includes("--dryrun") || args.includes("--dry-run");
+  const verbose = args.includes("--verbose") || args.includes("-v");
 
   // Check for private key from environment variable (most secure)
   const privateKeyFromEnv = process.env.ORACLE_PRIVATE_KEY;
@@ -263,6 +264,7 @@ function ixBatchSetPrices(index, btcPrice, ethPrice, solPrice, hypePrice, client
     console.error("  --prompt, -p               Securely prompt for private key (hidden input)");
     console.error("  --private-key-stdin        Read private key from stdin");
     console.error("  --dryrun                   Run without sending transactions");
+    console.error("  --verbose, -v              Enable continuous logging (off by default)");
     console.error("");
     console.error("🔒 Security: --prompt and env var methods don't expose keys in history or process lists");
     process.exit(1);
@@ -456,6 +458,9 @@ function ixBatchSetPrices(index, btcPrice, ethPrice, solPrice, hypePrice, client
   }
   console.log(colors.gray + "=".repeat(70) + "\n" + colors.reset);
 
+  if (!verbose) {
+    console.log(colors.gray + "ℹ️  Verbose logging disabled. Use --verbose or -v to see detailed updates." + colors.reset);
+  }
   console.log("Starting price streams...\n");
 
   /* Start composite oracles for BTC, ETH, SOL, HYPE */
@@ -543,6 +548,7 @@ function ixBatchSetPrices(index, btcPrice, ethPrice, solPrice, hypePrice, client
 
   /* Batch sender — only send if fixed-point i64 changes; no retry on expired */
   const TICK_MS = 750;
+  let updateCount = 0; // Track updates for non-verbose status
   setInterval(async () => {
     try {
       // Build fresh list with the exact i64 that would be written
@@ -577,63 +583,74 @@ function ixBatchSetPrices(index, btcPrice, ethPrice, solPrice, hypePrice, client
       const clientTsMs = Date.now();
 
       if (isDryRun) {
-        // DRY RUN: Print friendly human-readable log
-        console.log("\n" + colors.gray + "=".repeat(70) + colors.reset);
-        console.log(colors.cyan + `📊 Price Update @ ${new Date(clientTsMs).toISOString()}` + colors.reset);
-        console.log(colors.gray + "=".repeat(70) + colors.reset);
+        // DRY RUN: Print friendly human-readable log (only if verbose)
+        if (verbose) {
+          console.log("\n" + colors.gray + "=".repeat(70) + colors.reset);
+          console.log(colors.cyan + `📊 Price Update @ ${new Date(clientTsMs).toISOString()}` + colors.reset);
+          console.log(colors.gray + "=".repeat(70) + colors.reset);
 
-        console.log("\n" + colors.yellow + "📡 PYTH NETWORK (Hermes):" + colors.reset);
-        console.log(colors.gray + "   Source: https://hermes.pyth.network" + colors.reset);
-        for (const { sym, candI64, priceSource } of fresh) {
-          if (priceSource === "pyth") {
-            const humanPrice = candI64 / 10 ** DECIMALS;
-            const feed = FEEDS[sym];
-            console.log(`   • ${colors.cyan}${sym}/USD${colors.reset}: ${colors.green}$${fmt2(humanPrice)}${colors.reset}`);
-            console.log(`     ${colors.gray}Feed ID: ${feed.substring(0, 20)}...${colors.reset}`);
-            console.log(`     ${colors.gray}Publish time: ${new Date(latest[sym].pubMs).toISOString()}${colors.reset}`);
-          }
-        }
-
-        console.log("\n" + colors.cyan + "🔗 COMPOSITE ORACLE (o3.js):" + colors.reset);
-        for (const sym of ['BTC', 'ETH', 'SOL', 'HYPE']) {
-          const compData = compositeData[sym];
-          if (compData.price != null) {
-            const symColor = sym === 'HYPE' ? colors.magenta : colors.cyan;
-            console.log(`\n   • ${symColor}${sym}/USD${colors.reset}: ${colors.green}$${fmt2(compData.price)}${colors.reset}`);
-            const maxSources = sym === 'HYPE' ? 7 : 6; // HYPE has Hyperliquid as 7th source
-            console.log(`     ${colors.gray}Active sources: ${compData.count}/${maxSources}${colors.reset}`);
-
-            if (compData.sources.length > 0) {
-              console.log(`     ${colors.gray}Individual sources:${colors.reset}`);
-              for (const src of compData.sources) {
-                const ageSec = (src.age / 1000).toFixed(1);
-                console.log(`       • ${colors.blue}${src.source.padEnd(10)}${colors.reset}: ${colors.green}$${fmt2(src.price)}${colors.reset} ${colors.gray}(age: ${ageSec}s)${colors.reset}`);
-              }
-            }
-
-            const freshAsset = fresh.find(f => f.sym === sym);
-            if (freshAsset) {
-              const pythPrice = freshAsset.candI64 / 10 ** DECIMALS;
-              const diff = Math.abs(pythPrice - compData.price);
-              const pct = (diff / compData.price) * 100;
-              console.log(`\n     ${colors.cyan}📈 Price Comparison:${colors.reset}`);
-              console.log(`       ${colors.yellow}Pyth ${sym}${colors.reset}:      ${colors.green}$${fmt2(pythPrice)}${colors.reset}`);
-              console.log(`       ${colors.cyan}Composite ${sym}${colors.reset}: ${colors.green}$${fmt2(compData.price)}${colors.reset}`);
-              console.log(`       ${colors.gray}Difference${colors.reset}:    ${colors.yellow}$${diff.toFixed(2)} (${pct.toFixed(3)}%)${colors.reset}`);
-              if (pct > 0.5) {
-                console.log(`       ${colors.red}⚠️  WARNING: Divergence exceeds 0.5%!${colors.reset}`);
-              } else {
-                console.log(`       ${colors.green}✅ Within acceptable range${colors.reset}`);
-              }
+          console.log("\n" + colors.yellow + "📡 PYTH NETWORK (Hermes):" + colors.reset);
+          console.log(colors.gray + "   Source: https://hermes.pyth.network" + colors.reset);
+          for (const { sym, candI64, priceSource } of fresh) {
+            if (priceSource === "pyth") {
+              const humanPrice = candI64 / 10 ** DECIMALS;
+              const feed = FEEDS[sym];
+              console.log(`   • ${colors.cyan}${sym}/USD${colors.reset}: ${colors.green}$${fmt2(humanPrice)}${colors.reset}`);
+              console.log(`     ${colors.gray}Feed ID: ${feed.substring(0, 20)}...${colors.reset}`);
+              console.log(`     ${colors.gray}Publish time: ${new Date(latest[sym].pubMs).toISOString()}${colors.reset}`);
             }
           }
-        }
 
-        console.log("\n" + colors.yellow + "💾 WOULD SEND TO BLOCKCHAIN:" + colors.reset);
-        console.log(`   ${colors.gray}Program:${colors.reset} ${colors.cyan}${PROGRAM_ID.toBase58()}${colors.reset}`);
-        console.log(`   ${colors.gray}Updater Index:${colors.reset} ${colors.yellow}${index}${colors.reset}`);
-        console.log(`   ${colors.gray}Assets:${colors.reset} ${colors.green}${fresh.map(f => f.sym).join(", ")}${colors.reset}`);
-        console.log(colors.gray + "=".repeat(70) + "\n" + colors.reset);
+          console.log("\n" + colors.cyan + "🔗 COMPOSITE ORACLE (o3.js):" + colors.reset);
+          for (const sym of ['BTC', 'ETH', 'SOL', 'HYPE']) {
+            const compData = compositeData[sym];
+            if (compData.price != null) {
+              const symColor = sym === 'HYPE' ? colors.magenta : colors.cyan;
+              console.log(`\n   • ${symColor}${sym}/USD${colors.reset}: ${colors.green}$${fmt2(compData.price)}${colors.reset}`);
+              const maxSources = sym === 'HYPE' ? 7 : 6; // HYPE has Hyperliquid as 7th source
+              console.log(`     ${colors.gray}Active sources: ${compData.count}/${maxSources}${colors.reset}`);
+
+              if (compData.sources.length > 0) {
+                console.log(`     ${colors.gray}Individual sources:${colors.reset}`);
+                for (const src of compData.sources) {
+                  const ageSec = (src.age / 1000).toFixed(1);
+                  console.log(`       • ${colors.blue}${src.source.padEnd(10)}${colors.reset}: ${colors.green}$${fmt2(src.price)}${colors.reset} ${colors.gray}(age: ${ageSec}s)${colors.reset}`);
+                }
+              }
+
+              const freshAsset = fresh.find(f => f.sym === sym);
+              if (freshAsset) {
+                const pythPrice = freshAsset.candI64 / 10 ** DECIMALS;
+                const diff = Math.abs(pythPrice - compData.price);
+                const pct = (diff / compData.price) * 100;
+                console.log(`\n     ${colors.cyan}📈 Price Comparison:${colors.reset}`);
+                console.log(`       ${colors.yellow}Pyth ${sym}${colors.reset}:      ${colors.green}$${fmt2(pythPrice)}${colors.reset}`);
+                console.log(`       ${colors.cyan}Composite ${sym}${colors.reset}: ${colors.green}$${fmt2(compData.price)}${colors.reset}`);
+                console.log(`       ${colors.gray}Difference${colors.reset}:    ${colors.yellow}$${diff.toFixed(2)} (${pct.toFixed(3)}%)${colors.reset}`);
+                if (pct > 0.5) {
+                  console.log(`       ${colors.red}⚠️  WARNING: Divergence exceeds 0.5%!${colors.reset}`);
+                } else {
+                  console.log(`       ${colors.green}✅ Within acceptable range${colors.reset}`);
+                }
+              }
+            }
+          }
+
+          console.log("\n" + colors.yellow + "💾 WOULD SEND TO BLOCKCHAIN:" + colors.reset);
+          console.log(`   ${colors.gray}Program:${colors.reset} ${colors.cyan}${PROGRAM_ID.toBase58()}${colors.reset}`);
+          console.log(`   ${colors.gray}Updater Index:${colors.reset} ${colors.yellow}${index}${colors.reset}`);
+          console.log(`   ${colors.gray}Assets:${colors.reset} ${colors.green}${fresh.map(f => f.sym).join(", ")}${colors.reset}`);
+          console.log(colors.gray + "=".repeat(70) + "\n" + colors.reset);
+        } else {
+          // Non-verbose dryrun: print minimal status every 10 updates
+          updateCount++;
+          if (updateCount % 10 === 0) {
+            const priceStr = fresh.map(({ sym, candI64 }) =>
+              `${sym}=$${fmt2(candI64 / 10 ** DECIMALS)}`
+            ).join(', ');
+            console.log(`${colors.gray}[${new Date().toISOString()}]${colors.reset} ✓ Would send: ${priceStr}`);
+          }
+        }
 
         // Mark as sent in dry run to avoid repeated logs
         for (const { sym, candI64, priceSource } of fresh) {
@@ -734,50 +751,61 @@ function ixBatchSetPrices(index, btcPrice, ethPrice, solPrice, hypePrice, client
       }
 
       // Log: compact JSON with ms timestamp + latency + composite comparison
-      const compositeInfo = {};
-      for (const sym of ['BTC', 'ETH', 'SOL', 'HYPE']) {
-        const compData = compositeData[sym];
-        if (compData.price != null) {
-          compositeInfo[sym] = {
-            price: fmt2(compData.price),
-            sources: compData.count,
-            sourceDetails: compData.sources.map(s => ({
-              name: s.source,
-              price: fmt2(s.price),
-              age_ms: s.age
-            })),
-            divergence: divergences[sym] || null
-          };
+      if (verbose) {
+        const compositeInfo = {};
+        for (const sym of ['BTC', 'ETH', 'SOL', 'HYPE']) {
+          const compData = compositeData[sym];
+          if (compData.price != null) {
+            compositeInfo[sym] = {
+              price: fmt2(compData.price),
+              sources: compData.count,
+              sourceDetails: compData.sources.map(s => ({
+                name: s.source,
+                price: fmt2(s.price),
+                age_ms: s.age
+              })),
+              divergence: divergences[sym] || null
+            };
+          }
         }
-      }
 
-      console.log(
-        JSON.stringify(
-          {
-            ts_ms: clientTsMs,
-            idx: index,
-            assets: fresh.map(({ sym }) => sym),
-            prices: Object.fromEntries(
-              fresh.map(({ sym, candI64 }) => [
-                sym,
-                fmt2(candI64 / 10 ** DECIMALS),
-              ])
-            ),
-            composite: Object.keys(compositeInfo).length > 0 ? compositeInfo : null,
-            tx: sig,
-            t_recv,
-            t_sent,
-            dt_handle: t_recv - t0,
-            dt_send: t_sent - t_recv,
-          },
-          null,
-          0
-        )
-      );
+        console.log(
+          JSON.stringify(
+            {
+              ts_ms: clientTsMs,
+              idx: index,
+              assets: fresh.map(({ sym }) => sym),
+              prices: Object.fromEntries(
+                fresh.map(({ sym, candI64 }) => [
+                  sym,
+                  fmt2(candI64 / 10 ** DECIMALS),
+                ])
+              ),
+              composite: Object.keys(compositeInfo).length > 0 ? compositeInfo : null,
+              tx: sig,
+              t_recv,
+              t_sent,
+              dt_handle: t_recv - t0,
+              dt_send: t_sent - t_recv,
+            },
+            null,
+            0
+          )
+        );
 
-      // Log warnings if significant divergence
-      if (warnings.length > 0) {
-        console.warn(`[WARN] Price divergence > 0.5%: ${warnings.join(', ')}`);
+        // Log warnings if significant divergence
+        if (warnings.length > 0) {
+          console.warn(`[WARN] Price divergence > 0.5%: ${warnings.join(', ')}`);
+        }
+      } else {
+        // Non-verbose mode: print minimal status every 10 updates
+        updateCount++;
+        if (updateCount % 10 === 0) {
+          const priceStr = fresh.map(({ sym, candI64 }) =>
+            `${sym}=$${fmt2(candI64 / 10 ** DECIMALS)}`
+          ).join(', ');
+          console.log(`${colors.gray}[${new Date().toISOString()}]${colors.reset} ✓ Updated: ${priceStr} ${colors.gray}(tx: ${sig.substring(0, 8)}...)${colors.reset}`);
+        }
       }
     } catch (e) {
       console.error("[send/batch]", e?.message || e);
