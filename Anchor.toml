@@ -12,7 +12,7 @@ oracle = "LuS6XnQ3qNXqNQvAJ3akXnEJRBv9XNoUricjMgTyCxX"
 url = "https://api.apr.dev"
 
 [provider]
-cluster = "https://rpc.testnet.x1.xyz"
+cluster = "https://rpc.mainnet.x1.xyz"
 wallet = "~/.config/solana/id.json"
 
 [scripts]
