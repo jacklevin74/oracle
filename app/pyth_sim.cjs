@@ -17,6 +17,7 @@ const {
   Transaction,
   TransactionInstruction,
   sendAndConfirmTransaction,
+  ComputeBudgetProgram,
 } = require("@solana/web3.js");
 const fs = require("fs");
 const path = require("path");
@@ -49,6 +50,7 @@ const colors = {
 const PROGRAM_ID = new PublicKey("LuS6XnQ3qNXqNQvAJ3akXnEJRBv9XNoUricjMgTyCxX");
 const STATE_SEED = Buffer.from("state_v2"); // new PDA seed
 const DECIMALS = 6;
+const COMPUTE_UNIT_LIMIT = 50_000;
 
 /* set_price(asset:u8, index:u8, price:i64, ts:i64) */
 const DISC = {
@@ -210,9 +212,9 @@ function ixSetPrice(asset, index, priceI64, clientTsMs, programId, statePda, sig
       console.log("Initializing state PDA…");
       // ensure fresh blockhash for init too
       await ensureBlockhashFresh();
-      const tx = new Transaction().add(
-        ixInitialize(payer.publicKey, PROGRAM_ID, statePda)
-      );
+      const tx = new Transaction()
+        .add(ComputeBudgetProgram.setComputeUnitLimit({ units: COMPUTE_UNIT_LIMIT }))
+        .add(ixInitialize(payer.publicKey, PROGRAM_ID, statePda));
       tx.feePayer = payer.publicKey;
       tx.recentBlockhash = bhCache.blockhash;
 
@@ -483,8 +485,10 @@ function ixSetPrice(asset, index, priceI64, clientTsMs, programId, statePda, sig
       // fresh blockhash every send (<= 2s old)
       await ensureBlockhashFresh();
 
-      // Build batch tx (no priority fee, as requested)
+      // Build batch tx with compute budget limit
       const tx = new Transaction();
+      tx.add(ComputeBudgetProgram.setComputeUnitLimit({ units: COMPUTE_UNIT_LIMIT }));
+
       for (const { sym, candI64 } of fresh) {
         const asset =
           sym === "BTC" ? ASSETS.BTC :
