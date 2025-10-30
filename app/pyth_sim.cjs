@@ -93,6 +93,61 @@ function keypairFromArray(secretKeyArray) {
   // Create keypair from array of bytes [1,2,3,...]
   return Keypair.fromSecretKey(Uint8Array.from(secretKeyArray));
 }
+async function promptPrivateKey() {
+  // Prompt for private key without echoing (like password input)
+  const readline = require('readline');
+
+  return new Promise((resolve, reject) => {
+    const rl = readline.createInterface({
+      input: process.stdin,
+      output: process.stdout,
+      terminal: true
+    });
+
+    // Mute the output so password doesn't show
+    const stdin = process.stdin;
+    const mute = () => {
+      stdin.on('data', char => {
+        char = char.toString();
+        if (char === '\n' || char === '\r' || char === '\u0004') {
+          stdin.pause();
+        }
+      });
+    };
+
+    console.log('\n🔐 Enter your private key (input will be hidden):');
+    console.log('   Accepts: base58 string or JSON array [1,2,3,...]');
+    console.log('');
+    process.stdout.write('Private Key: ');
+
+    mute();
+
+    rl.question('', (answer) => {
+      rl.close();
+      console.log('\n'); // New line after hidden input
+      resolve(answer.trim());
+    });
+
+    rl.on('close', () => {
+      if (!rl.line) {
+        reject(new Error('No input received'));
+      }
+    });
+  });
+}
+function parsePrivateKey(input) {
+  // Try to parse as JSON array first
+  if (input.startsWith('[')) {
+    try {
+      const arr = JSON.parse(input);
+      return keypairFromArray(arr);
+    } catch (e) {
+      throw new Error('Invalid JSON array format');
+    }
+  }
+  // Otherwise treat as base58
+  return keypairFromBase58(input);
+}
 function u8(n) {
   const b = Buffer.alloc(1);
   b.writeUint8(n);
@@ -178,18 +233,26 @@ function ixBatchSetPrices(index, btcPrice, ethPrice, solPrice, hypePrice, client
   // Check for --private-key-stdin flag (secure - no history)
   const useStdin = args.includes("--private-key-stdin");
 
-  // Check for wallet file (legacy method)
-  const walletArg = args.find(a => !a.startsWith("--"));
+  // Check for --prompt flag (interactive prompt - secure)
+  const usePrompt = args.includes("--prompt") || args.includes("-p");
 
-  if (!isDryRun && !walletArg && !privateKeyFromEnv && !useStdin) {
+  // Check for wallet file (legacy method)
+  const walletArg = args.find(a => !a.startsWith("--") && !a.startsWith("-"));
+
+  if (!isDryRun && !walletArg && !privateKeyFromEnv && !useStdin && !usePrompt) {
     console.error("Usage:");
-    console.error("  With env var (RECOMMENDED):  ORACLE_PRIVATE_KEY=<base58_key> node app/pyth_sim.cjs");
-    console.error("  With stdin:                  echo <base58_key> | node app/pyth_sim.cjs --private-key-stdin");
-    console.error("  With wallet file:            node app/pyth_sim.cjs <wallet.json>");
-    console.error("  Dry run mode:                node app/pyth_sim.cjs --dryrun");
+    console.error("  Interactive prompt (SECURE):  node app/pyth_sim.cjs --prompt");
+    console.error("  With env var:                 ORACLE_PRIVATE_KEY=<key> node app/pyth_sim.cjs");
+    console.error("  With stdin:                   echo <key> | node app/pyth_sim.cjs --private-key-stdin");
+    console.error("  With wallet file:             node app/pyth_sim.cjs <wallet.json>");
+    console.error("  Dry run mode:                 node app/pyth_sim.cjs --dryrun");
     console.error("");
-    console.error("Security Note: Environment variable method is recommended as it doesn't expose");
-    console.error("               keys in command history or process lists.");
+    console.error("Options:");
+    console.error("  --prompt, -p               Securely prompt for private key (hidden input)");
+    console.error("  --private-key-stdin        Read private key from stdin");
+    console.error("  --dryrun                   Run without sending transactions");
+    console.error("");
+    console.error("🔒 Security: --prompt and env var methods don't expose keys in history or process lists");
     process.exit(1);
   }
 
@@ -199,13 +262,21 @@ function ixBatchSetPrices(index, btcPrice, ethPrice, solPrice, hypePrice, client
 
   let payer, payerPub, index;
 
-  if (privateKeyFromEnv || useStdin) {
-    /* Load from environment variable or stdin (most secure) */
+  if (privateKeyFromEnv || useStdin || usePrompt) {
+    /* Load from environment variable, stdin, or interactive prompt (all secure) */
     let privateKey;
 
     if (privateKeyFromEnv) {
       privateKey = privateKeyFromEnv;
       console.log("✓ Loading keypair from ORACLE_PRIVATE_KEY environment variable");
+    } else if (usePrompt) {
+      // Interactive secure prompt
+      try {
+        privateKey = await promptPrivateKey();
+      } catch (e) {
+        console.error("Failed to read private key:", e.message);
+        process.exit(1);
+      }
     } else if (useStdin) {
       // Read from stdin
       const readline = require('readline');
@@ -225,17 +296,17 @@ function ixBatchSetPrices(index, btcPrice, ethPrice, solPrice, hypePrice, client
     }
 
     try {
-      payer = keypairFromBase58(privateKey);
+      payer = parsePrivateKey(privateKey);
       payerPub = payer.publicKey.toBase58();
       index = ALLOWED.get(payerPub);
       if (![1, 2, 3, 4].includes(index)) {
         console.error("Public key not authorized for any index:", payerPub);
         process.exit(1);
       }
-      console.log(`Authorized public key ${payerPub} for index ${index}.`);
+      console.log(`✓ Authorized public key ${payerPub} for index ${index}.`);
     } catch (e) {
       console.error("Failed to parse private key:", e.message);
-      console.error("Expected base58 encoded private key (64 bytes)");
+      console.error("Expected base58 string or JSON array [1,2,3,...]");
       process.exit(1);
     }
   } else if (walletArg) {
