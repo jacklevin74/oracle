@@ -50,7 +50,7 @@ const colors = {
 const PROGRAM_ID = new PublicKey("LuS6XnQ3qNXqNQvAJ3akXnEJRBv9XNoUricjMgTyCxX");
 const STATE_SEED = Buffer.from("state_v2"); // new PDA seed
 const DECIMALS = 6;
-const COMPUTE_UNIT_LIMIT = 50_000;
+const COMPUTE_UNIT_LIMIT = 15_000;
 
 /* Instruction discriminators */
 const DISC = {
