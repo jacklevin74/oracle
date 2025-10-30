@@ -9,9 +9,9 @@ import express from "express";
 import { Connection, PublicKey } from "@solana/web3.js";
 
 /* ----------- CONFIG (must match your on-chain program) ----------- */
-const PROGRAM_ID = new PublicKey("7ARBeYF5rGCanAGiRaxhVpiuZZpGXazo5UJqHMoJgkuE");
+const PROGRAM_ID = new PublicKey("LuS6XnQ3qNXqNQvAJ3akXnEJRBv9XNoUricjMgTyCxX");
 const STATE_SEED = Buffer.from("state_v2"); // PDA seed
-const RPC_URL = process.env.RPC_URL || "http://127.0.0.1:8899";
+const RPC_URL = process.env.RPC_URL || "https://rpc.testnet.x1.xyz";
 const HOST = "0.0.0.0";
 const PORT = 3000;
 const COMMITMENT = "processed";
@@ -23,16 +23,17 @@ const app = express();
 
 /* ----------- State layout decoding ----------- */
 const DISC_LEN = 8;
-const TRIP = { price1: 0, price2: 8, price3: 16, ts1: 24, ts2: 32, ts3: 40, SIZE: 48 };
+const TRIP = { price1: 0, price2: 8, price3: 16, price4: 24, ts1: 32, ts2: 40, ts3: 48, ts4: 56, SIZE: 64 };
 const OFF = {
   update_authority: 0,
   btc: 32,
   eth: 32 + TRIP.SIZE,
   sol: 32 + TRIP.SIZE * 2,
-  decimals: 32 + TRIP.SIZE * 3,
-  bump: 32 + TRIP.SIZE * 3 + 1,
+  hype: 32 + TRIP.SIZE * 3,
+  decimals: 32 + TRIP.SIZE * 4,
+  bump: 32 + TRIP.SIZE * 4 + 1,
 };
-const PAYLOAD_MIN = 32 + TRIP.SIZE * 3 + 2;
+const PAYLOAD_MIN = 32 + TRIP.SIZE * 4 + 2;
 
 function readI64LE(b, o) {
   const buf = Buffer.isBuffer(b) ? b : Buffer.from(b);
@@ -48,9 +49,11 @@ function decodeTrip(buf, base) {
     p1: readI64LE(buf, base + TRIP.price1),
     p2: readI64LE(buf, base + TRIP.price2),
     p3: readI64LE(buf, base + TRIP.price3),
+    p4: readI64LE(buf, base + TRIP.price4),
     t1: readI64LE(buf, base + TRIP.ts1),
     t2: readI64LE(buf, base + TRIP.ts2),
     t3: readI64LE(buf, base + TRIP.ts3),
+    t4: readI64LE(buf, base + TRIP.ts4),
   };
 }
 function toHuman2(i64, d) {
@@ -90,6 +93,7 @@ async function readOracleState() {
   const btc = decodeTrip(payload, OFF.btc);
   const eth = decodeTrip(payload, OFF.eth);
   const sol = decodeTrip(payload, OFF.sol);
+  const hype = decodeTrip(payload, OFF.hype);
 
   const now = Date.now();
   const validMs = (x) => Number.isFinite(Number(x)) && Number(x) > 1e11 && Number(x) < 8.64e15;
@@ -104,21 +108,60 @@ async function readOracleState() {
     { price: toHuman2(t.p1, decimals), ts: safeIso(t.t1), age: ageOf(t.t1) },
     { price: toHuman2(t.p2, decimals), ts: safeIso(t.t2), age: ageOf(t.t2) },
     { price: toHuman2(t.p3, decimals), ts: safeIso(t.t3), age: ageOf(t.t3) },
+    { price: toHuman2(t.p4, decimals), ts: safeIso(t.t4), age: ageOf(t.t4) },
   ]);
 
-  const groups = { BTC: mkRows(btc), ETH: mkRows(eth), SOL: mkRows(sol) };
+  const groups = { BTC: mkRows(btc), ETH: mkRows(eth), SOL: mkRows(sol), HYPE: mkRows(hype) };
 
-  // Aggregates from current rows (ignore nulls)
+  // Aggregates from current rows (ignore nulls, exclude stale and outliers)
   const agg = {};
   const latestTs = {};
-  for (const sym of ["BTC", "ETH", "SOL"]) {
+  const STALE_THRESHOLD_MS = 15000; // 15 seconds
+  const OUTLIER_THRESHOLD = 0.10; // 10%
+
+  for (const sym of ["BTC", "ETH", "SOL", "HYPE"]) {
     const rows = groups[sym];
-    const prices = rows.map(r => (r.price != null ? Number(r.price) : null)).filter(Number.isFinite);
-    const ages   = rows.map(r => (Number.isFinite(r.age) ? r.age : null)).filter(Number.isFinite);
-    const tsVals = rows.map(r => (r.ts ? Date.parse(r.ts) : null)).filter((x)=>Number.isFinite(x));
+
+    // Filter out zero/null prices and stale data (older than 15s)
+    const validRows = rows
+      .map((r, idx) => ({ ...r, idx, priceNum: Number(r.price) }))
+      .filter(r => {
+        if (!Number.isFinite(r.priceNum)) return false;
+        if (r.priceNum === 0) return false; // exclude zero prices
+        if (!Number.isFinite(r.age)) return false;
+        if (r.age > STALE_THRESHOLD_MS) return false; // exclude stale data
+        return true;
+      });
+
+    if (validRows.length === 0) {
+      agg[sym] = { avg: null, count: 0, ageAvg: null };
+      latestTs[sym] = null;
+      continue;
+    }
+
+    // Calculate median to detect outliers
+    const sortedPrices = validRows.map(r => r.priceNum).sort((a, b) => a - b);
+    const median = sortedPrices[Math.floor(sortedPrices.length / 2)];
+
+    // Exclude outliers (more than 10% away from median)
+    const filteredRows = validRows.filter(r => {
+      const deviation = Math.abs(r.priceNum - median) / median;
+      return deviation <= OUTLIER_THRESHOLD;
+    });
+
+    if (filteredRows.length === 0) {
+      agg[sym] = { avg: null, count: 0, ageAvg: null };
+      latestTs[sym] = null;
+      continue;
+    }
+
+    const prices = filteredRows.map(r => r.priceNum);
+    const ages = filteredRows.map(r => r.age);
+    const tsVals = filteredRows.map(r => (r.ts ? Date.parse(r.ts) : null)).filter((x)=>Number.isFinite(x));
+
     agg[sym] = {
-      avg: prices.length ? (prices.reduce((a,b)=>a+b,0) / prices.length) : null,
-      count: prices.length,
+      avg: prices.reduce((a,b)=>a+b,0) / prices.length,
+      count: filteredRows.length,
       ageAvg: ages.length ? Math.round(ages.reduce((a,b)=>a+b,0) / ages.length) : null
     };
     latestTs[sym] = tsVals.length ? Math.max(...tsVals) : null; // store ms epoch
@@ -145,7 +188,7 @@ app.get("/api/state", async (_req, res) => {
 });
 
 /* ----------- HTML (aggregates on TOP with avg ms + latest local time; collapsible details) ----------- */
-const COL_HDRS = ["AivknD", "C3Un8Z", "129arb"];
+const COL_HDRS = ["AivknD", "C3Un8Z", "129arb", "55MyuY"];
 const HTML = /* html */ `
 <!doctype html>
 <html>
@@ -203,6 +246,11 @@ const HTML = /* html */ `
         <div class="title">SOL · aggregated average</div>
         <div class="price" id="agg-sol">–</div>
         <div class="sub" id="sub-sol"></div>
+      </div>
+      <div class="card">
+        <div class="title">HYPE · aggregated average</div>
+        <div class="price" id="agg-hype">–</div>
+        <div class="sub" id="sub-hype"></div>
       </div>
     </div>
 
@@ -295,9 +343,11 @@ const HTML = /* html */ `
         const oB = document.getElementById('agg-btc');
         const oE = document.getElementById('agg-eth');
         const oS = document.getElementById('agg-sol');
+        const oH = document.getElementById('agg-hype');
         const sB = document.getElementById('sub-btc');
         const sE = document.getElementById('sub-eth');
         const sS = document.getElementById('sub-sol');
+        const sH = document.getElementById('sub-hype');
 
         if(!d.exists){
           meta.textContent = d.message || "state not initialized";
@@ -309,18 +359,21 @@ const HTML = /* html */ `
         meta.textContent = \`slot \${d.ctxSlot} · pda \${d.pda} · dec \${d.decimals}\`;
 
         // TOP aggregates
-        const B = d.agg?.BTC, E = d.agg?.ETH, S = d.agg?.SOL;
+        const B = d.agg?.BTC, E = d.agg?.ETH, S = d.agg?.SOL, H = d.agg?.HYPE;
         oB.textContent = fmt2(B?.avg ?? null);
         oE.textContent = fmt2(E?.avg ?? null);
         oS.textContent = fmt2(S?.avg ?? null);
+        oH.textContent = fmt2(H?.avg ?? null);
 
         const tB = d.latestTs?.BTC ?? null;
         const tE = d.latestTs?.ETH ?? null;
         const tS = d.latestTs?.SOL ?? null;
+        const tH = d.latestTs?.HYPE ?? null;
 
         const lcB = tB ? fmtLocalClock(tB) : null;
         const lcE = tE ? fmtLocalClock(tE) : null;
         const lcS = tS ? fmtLocalClock(tS) : null;
+        const lcH = tH ? fmtLocalClock(tH) : null;
 
         sB.textContent = (B && B.count)
           ? \`\${fmtMs(B.ageAvg)} · \${lcB ?? "–"}\`
@@ -331,11 +384,14 @@ const HTML = /* html */ `
         sS.textContent = (S && S.count)
           ? \`\${fmtMs(S.ageAvg)} · \${lcS ?? "–"}\`
           : "–";
+        sH.textContent = (H && H.count)
+          ? \`\${fmtMs(H.ageAvg)} · \${lcH ?? "–"}\`
+          : "–";
 
-        stack.style.display = (B?.count || E?.count || S?.count) ? "block" : "none";
+        stack.style.display = (B?.count || E?.count || S?.count || H?.count) ? "block" : "none";
 
         // Per-signer tables with LOCAL time column
-        groups.innerHTML = row("BTC", d.groups.BTC) + row("ETH", d.groups.ETH) + row("SOL", d.groups.SOL);
+        groups.innerHTML = row("BTC", d.groups.BTC) + row("ETH", d.groups.ETH) + row("SOL", d.groups.SOL) + row("HYPE", d.groups.HYPE);
       }catch(e){
         document.getElementById('meta').textContent = "error: " + (e.message || e);
         document.getElementById('stack').style.display = "none";
