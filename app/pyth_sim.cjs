@@ -336,6 +336,25 @@ function ixBatchSetPrices(index, btcPrice, ethPrice, solPrice, hypePrice, client
         process.exit(1);
       }
 
+      // Validate the private key before forking
+      try {
+        const testKeypair = parsePrivateKey(privateKey);
+        const testPubkey = testKeypair.publicKey.toBase58();
+        const testIndex = ALLOWED.get(testPubkey);
+
+        if (![1, 2, 3, 4].includes(testIndex)) {
+          originalConsoleError(`\n❌ ERROR: Private key is not authorized`);
+          originalConsoleError(`   Public key: ${testPubkey}`);
+          originalConsoleError(`   This key is not in the allowed updaters list\n`);
+          process.exit(1);
+        }
+      } catch (e) {
+        originalConsoleError(`\n❌ ERROR: Invalid private key format`);
+        originalConsoleError(`   ${e.message}`);
+        originalConsoleError(`   Expected: base58 string or JSON array [1,2,3,...]\n`);
+        process.exit(1);
+      }
+
       // Fork to background if not already forked
       if (shouldDaemonize && !isForkedChild) {
         const { spawn } = require('child_process');
