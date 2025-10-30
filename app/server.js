@@ -188,7 +188,7 @@ app.get("/api/state", async (_req, res) => {
 });
 
 /* ----------- HTML (aggregates on TOP with avg ms + latest local time; collapsible details) ----------- */
-const COL_HDRS = ["AivknD", "C3Un8Z", "129arb", "55MyuY"];
+const COL_HDRS = ["CGLezz", "FprJrT", "7FZvQQ", "55MyuY"]; // mn_relay1, mn_relay2, mn_relay3, reserved
 const HTML = /* html */ `
 <!doctype html>
 <html>
