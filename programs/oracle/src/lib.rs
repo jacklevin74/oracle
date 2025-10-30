@@ -1,18 +1,20 @@
 use anchor_lang::prelude::*;
 use std::str::FromStr;
 
-declare_id!("7ARBeYF5rGCanAGiRaxhVpiuZZpGXazo5UJqHMoJgkuE");
+declare_id!("LuS6XnQ3qNXqNQvAJ3akXnEJRBv9XNoUricjMgTyCxX");
 
 // Hard-coded per-parameter updaters
 const PARAM1_UPDATER: &str = "AivknDqDUqnvyYVmDViiB2bEHKyUK5HcX91gWL2zgTZ4";
 const PARAM2_UPDATER: &str = "C3Un8Zf6pnyedk1AWDgqtZtKYLyiaZ4zwFPqJMVU2Trt";
 const PARAM3_UPDATER: &str = "129arbPoM1UXBtYk99PXbp4w1csc4d5hFXnX4mh7nYc5";
+const PARAM4_UPDATER: &str = "55MyuYePgkwAExNqtdNY4zahSyiM3stjjRm3Ym36sTA8";
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, PartialEq, Eq)]
 pub enum Asset {
     Btc = 1,
     Eth = 2,
     Sol = 3,
+    Hype = 4,
 }
 
 #[program]
@@ -27,6 +29,7 @@ pub mod oracle {
         s.btc = Triplet::default();
         s.eth = Triplet::default();
         s.sol = Triplet::default();
+        s.hype = Triplet::default();
         Ok(())
     }
 
@@ -43,6 +46,7 @@ pub mod oracle {
             1 => Pubkey::from_str(PARAM1_UPDATER).map_err(|_| error!(OracleError::BadKey))?,
             2 => Pubkey::from_str(PARAM2_UPDATER).map_err(|_| error!(OracleError::BadKey))?,
             3 => Pubkey::from_str(PARAM3_UPDATER).map_err(|_| error!(OracleError::BadKey))?,
+            4 => Pubkey::from_str(PARAM4_UPDATER).map_err(|_| error!(OracleError::BadKey))?,
             _ => return err!(OracleError::BadIndex),
         };
         require_keys_eq!(signer, expected, OracleError::UnauthorizedForIndex);
@@ -52,6 +56,7 @@ pub mod oracle {
             x if x == Asset::Btc as u8 => &mut s.btc,
             x if x == Asset::Eth as u8 => &mut s.eth,
             x if x == Asset::Sol as u8 => &mut s.sol,
+            x if x == Asset::Hype as u8 => &mut s.hype,
             _ => return err!(OracleError::BadAsset),
         };
 
@@ -59,6 +64,7 @@ pub mod oracle {
             1 => { t.param1 = price; t.ts1 = client_ts_ms; }
             2 => { t.param2 = price; t.ts2 = client_ts_ms; }
             3 => { t.param3 = price; t.ts3 = client_ts_ms; }
+            4 => { t.param4 = price; t.ts4 = client_ts_ms; }
             _ => unreachable!(),
         }
 
@@ -84,8 +90,8 @@ pub mod oracle {
 
 #[event]
 pub struct PriceUpdated {
-    pub asset: u8,        // 1=BTC, 2=ETH, 3=SOL
-    pub index: u8,        // 1,2,3
+    pub asset: u8,        // 1=BTC, 2=ETH, 3=SOL, 4=HYPE
+    pub index: u8,        // 1,2,3,4
     pub price: i64,
     pub decimals: u8,     // 6
     pub client_ts_ms: i64,
@@ -95,14 +101,15 @@ pub struct PriceUpdated {
 #[account]
 pub struct State {
     pub update_authority: Pubkey, // 32
-    pub btc: Triplet,             // 48
-    pub eth: Triplet,             // 48
-    pub sol: Triplet,             // 48
+    pub btc: Triplet,             // 64
+    pub eth: Triplet,             // 64
+    pub sol: Triplet,             // 64
+    pub hype: Triplet,            // 64
     pub decimals: u8,             // 1
     pub bump: u8,                 // 1
 }
 impl State {
-    pub const SIZE: usize = 32 + (Triplet::SIZE * 3) + 1 + 1; // 32 + 144 + 2 = 178
+    pub const SIZE: usize = 32 + (Triplet::SIZE * 4) + 1 + 1; // 32 + 256 + 2 = 290
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, Default)]
@@ -110,12 +117,14 @@ pub struct Triplet {
     pub param1: i64,
     pub param2: i64,
     pub param3: i64,
+    pub param4: i64,
     pub ts1: i64,
     pub ts2: i64,
     pub ts3: i64,
+    pub ts4: i64,
 }
 impl Triplet {
-    pub const SIZE: usize = 6 * 8; // 48
+    pub const SIZE: usize = 8 * 8; // 64
 }
 
 #[derive(Accounts)]
@@ -151,9 +160,9 @@ pub struct SetUpdateAuthority<'info> {
 pub enum OracleError {
     #[msg("Unauthorized (admin)")]
     Unauthorized,
-    #[msg("Bad asset (must be 1=BTC,2=ETH,3=SOL)")]
+    #[msg("Bad asset (must be 1=BTC,2=ETH,3=SOL,4=HYPE)")]
     BadAsset,
-    #[msg("Index must be 1, 2, or 3")]
+    #[msg("Index must be 1, 2, 3, or 4")]
     BadIndex,
     #[msg("Signer not authorized for the requested index")]
     UnauthorizedForIndex,

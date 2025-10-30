@@ -46,7 +46,7 @@ const colors = {
 };
 
 /* ===== Program constants ===== */
-const PROGRAM_ID = new PublicKey("7ARBeYF5rGCanAGiRaxhVpiuZZpGXazo5UJqHMoJgkuE");
+const PROGRAM_ID = new PublicKey("LuS6XnQ3qNXqNQvAJ3akXnEJRBv9XNoUricjMgTyCxX");
 const STATE_SEED = Buffer.from("state_v2"); // new PDA seed
 const DECIMALS = 6;
 
