@@ -245,7 +245,7 @@ function ixBatchSetPrices(index, btcPrice, ethPrice, solPrice, hypePrice, client
   const logFile = logArg ? logArg.split('=')[1] : null;
 
   // Check if we should daemonize (background) after prompt
-  const shouldDaemonize = args.includes("--prompt") || args.includes("-p");
+  const shouldDaemonize = args.includes("--daemon") || args.includes("-d");
   const isForkedChild = process.env.__ORACLE_FORKED === '1';
 
   // Lock file to prevent multiple instances
@@ -366,13 +366,15 @@ function ixBatchSetPrices(index, btcPrice, ethPrice, solPrice, hypePrice, client
     console.error("Options:");
     console.error("  --prompt, -p               Securely prompt for private key (hidden input)");
     console.error("  --private-key-stdin        Read private key from stdin");
+    console.error("  --daemon, -d               Fork to background after authentication");
     console.error("  --dryrun                   Run without sending transactions");
     console.error("  --verbose, -v              Enable continuous logging (off by default)");
     console.error("  --log=<file>               Write logs to specified file (appends)");
     console.error("");
     console.error("Examples:");
-    console.error("  node app/pyth_sim.cjs --prompt --log=/var/log/oracle.log");
-    console.error("  node app/pyth_sim.cjs --prompt --verbose --log=./oracle.log");
+    console.error("  node app/pyth_sim.cjs --prompt --daemon --log=/var/log/oracle.log");
+    console.error("  node app/pyth_sim.cjs --prompt --verbose");
+    console.error("  node app/pyth_sim.cjs -p -d --log=./oracle.log");
     console.error("");
     console.error("🔒 Security: --prompt and env var methods don't expose keys in history or process lists");
     process.exit(1);
@@ -423,8 +425,8 @@ function ixBatchSetPrices(index, btcPrice, ethPrice, solPrice, hypePrice, client
       if (shouldDaemonize && !isForkedChild) {
         const { spawn } = require('child_process');
 
-        // Build arguments for child (replace --prompt with --private-key-stdin)
-        const childArgs = args.filter(a => a !== '--prompt' && a !== '-p');
+        // Build arguments for child (replace --prompt with --private-key-stdin, remove --daemon)
+        const childArgs = args.filter(a => a !== '--prompt' && a !== '-p' && a !== '--daemon' && a !== '-d');
         childArgs.push('--private-key-stdin');
 
         // Spawn child process detached
