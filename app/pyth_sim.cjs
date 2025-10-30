@@ -254,33 +254,25 @@ function ixBatchSetPrices(index, btcPrice, ethPrice, solPrice, hypePrice, client
   if (logFile) {
     logStream = fs.createWriteStream(logFile, { flags: 'a' });
 
-    // Override console methods: file only after init, both during init
+    // Override console methods: file only (no stdout)
     console.log = function(...args) {
       const message = args.join(' ');
-      if (!initializationComplete) {
-        originalConsoleLog.apply(console, args);
-      }
       logStream.write(new Date().toISOString() + ' [LOG] ' + message + '\n');
     };
 
     console.error = function(...args) {
       const message = args.join(' ');
-      if (!initializationComplete) {
-        originalConsoleError.apply(console, args);
-      }
       logStream.write(new Date().toISOString() + ' [ERROR] ' + message + '\n');
     };
 
     console.warn = function(...args) {
       const message = args.join(' ');
-      if (!initializationComplete) {
-        originalConsoleWarn.apply(console, args);
-      }
       logStream.write(new Date().toISOString() + ' [WARN] ' + message + '\n');
     };
 
     originalConsoleLog(`📝 Logging to file: ${logFile}`);
-    originalConsoleLog(`   Regular output will be suppressed after initialization`);
+    originalConsoleLog(`   All output will go to the log file only`);
+    initializationComplete = true; // Mark as complete immediately
   }
 
   // Check for private key from environment variable (most secure)
@@ -611,11 +603,6 @@ function ixBatchSetPrices(index, btcPrice, ethPrice, solPrice, hypePrice, client
   /* Batch sender — only send if fixed-point i64 changes; no retry on expired */
   const TICK_MS = 750;
   let lastLogTime = 0; // Track last log time for non-verbose status (time-based throttle)
-
-  // Mark initialization complete - suppresses stdout when --log is used
-  if (logFile) {
-    initializationComplete = true;
-  }
 
   setInterval(async () => {
     try {
