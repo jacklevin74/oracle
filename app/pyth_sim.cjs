@@ -602,7 +602,7 @@ function ixBatchSetPrices(index, btcPrice, ethPrice, solPrice, hypePrice, client
 
   /* Batch sender — only send if fixed-point i64 changes; no retry on expired */
   const TICK_MS = 750;
-  let updateCount = 0; // Track updates for non-verbose status
+  let lastLogTime = 0; // Track last log time for non-verbose status (time-based throttle)
   setInterval(async () => {
     try {
       // Build fresh list with the exact i64 that would be written
@@ -696,13 +696,14 @@ function ixBatchSetPrices(index, btcPrice, ethPrice, solPrice, hypePrice, client
           console.log(`   ${colors.gray}Assets:${colors.reset} ${colors.green}${fresh.map(f => f.sym).join(", ")}${colors.reset}`);
           console.log(colors.gray + "=".repeat(70) + "\n" + colors.reset);
         } else {
-          // Non-verbose dryrun: print minimal status every 10 updates
-          updateCount++;
-          if (updateCount % 10 === 0) {
+          // Non-verbose dryrun: print minimal status at most once per second
+          const now = Date.now();
+          if (now - lastLogTime >= 1000) {
             const priceStr = fresh.map(({ sym, candI64 }) =>
               `${sym}=$${fmt2(candI64 / 10 ** DECIMALS)}`
             ).join(', ');
             console.log(`${colors.gray}[${new Date().toISOString()}]${colors.reset} ✓ Would send: ${priceStr}`);
+            lastLogTime = now;
           }
         }
 
@@ -852,13 +853,14 @@ function ixBatchSetPrices(index, btcPrice, ethPrice, solPrice, hypePrice, client
           console.warn(`[WARN] Price divergence > 0.5%: ${warnings.join(', ')}`);
         }
       } else {
-        // Non-verbose mode: print minimal status every 10 updates
-        updateCount++;
-        if (updateCount % 10 === 0) {
+        // Non-verbose mode: print minimal status at most once per second
+        const now = Date.now();
+        if (now - lastLogTime >= 1000) {
           const priceStr = fresh.map(({ sym, candI64 }) =>
             `${sym}=$${fmt2(candI64 / 10 ** DECIMALS)}`
           ).join(', ');
           console.log(`${colors.gray}[${new Date().toISOString()}]${colors.reset} ✓ Updated: ${priceStr} ${colors.gray}(tx: ${sig.substring(0, 8)}...)${colors.reset}`);
+          lastLogTime = now;
         }
       }
     } catch (e) {
