@@ -135,12 +135,13 @@ async function stopExistingProcess(name) {
 // Start process with PM2
 function startWithPM2(privateKey, processName, verbose) {
   return new Promise((resolve, reject) => {
-    const scriptPath = path.join(__dirname, 'pyth_sim.cjs');
+    // Use stdin wrapper to avoid environment variables completely
+    const wrapperPath = path.join(__dirname, 'pm2-stdin-wrapper.cjs');
 
-    // Build PM2 start command
-    let cmd = `pm2 start ${scriptPath} --name ${processName} --time --log-date-format "YYYY-MM-DD HH:mm:ss Z"`;
+    // Build PM2 start command with wrapper
+    let cmd = `echo "${privateKey}" | pm2 start ${wrapperPath} --name ${processName} --time --log-date-format "YYYY-MM-DD HH:mm:ss Z"`;
 
-    // Only add -- if there are script arguments
+    // Add verbose flag if needed
     if (verbose) {
       cmd += ' -- --verbose';
     }
@@ -148,11 +149,10 @@ function startWithPM2(privateKey, processName, verbose) {
     log(`Starting oracle client under PM2...`);
     log(`Process name: ${colors.yellow}${processName}${colors.reset}`);
     log(`Verbose mode: ${verbose ? colors.green + 'enabled' : colors.gray + 'disabled'}${colors.reset}`);
+    log(`${colors.green}Using stdin pipe (no environment variables)${colors.reset}`);
 
-    // Set environment variable for private key
-    const env = { ...process.env, ORACLE_PRIVATE_KEY: privateKey };
-
-    exec(cmd, { env }, (err, stdout, stderr) => {
+    // NO environment variable for private key!
+    exec(cmd, (err, stdout, stderr) => {
       if (err) {
         reject(err);
         return;
@@ -160,6 +160,10 @@ function startWithPM2(privateKey, processName, verbose) {
 
       console.log(stdout);
       if (stderr) console.error(stderr);
+
+      // Overwrite and clear private key from this process
+      privateKey = '0'.repeat(privateKey.length);
+      privateKey = null;
 
       resolve();
     });
