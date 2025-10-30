@@ -84,6 +84,15 @@ function readKeypair(p) {
     Uint8Array.from(JSON.parse(fs.readFileSync(p, "utf8")))
   );
 }
+function keypairFromBase58(base58PrivateKey) {
+  // Decode base58 private key string to bytes
+  const decoded = require('bs58').decode(base58PrivateKey);
+  return Keypair.fromSecretKey(decoded);
+}
+function keypairFromArray(secretKeyArray) {
+  // Create keypair from array of bytes [1,2,3,...]
+  return Keypair.fromSecretKey(Uint8Array.from(secretKeyArray));
+}
 function u8(n) {
   const b = Buffer.alloc(1);
   b.writeUint8(n);
@@ -162,11 +171,25 @@ function ixBatchSetPrices(index, btcPrice, ethPrice, solPrice, hypePrice, client
   /* CLI */
   const args = process.argv.slice(2);
   const isDryRun = args.includes("--dryrun") || args.includes("--dry-run");
+
+  // Check for private key from environment variable (most secure)
+  const privateKeyFromEnv = process.env.ORACLE_PRIVATE_KEY;
+
+  // Check for --private-key-stdin flag (secure - no history)
+  const useStdin = args.includes("--private-key-stdin");
+
+  // Check for wallet file (legacy method)
   const walletArg = args.find(a => !a.startsWith("--"));
 
-  if (!isDryRun && !walletArg) {
-    console.error("Usage: node app/pyth_stream_writer.js <wallet.json> [--dryrun]");
-    console.error("       node app/pyth_stream_writer.js --dryrun");
+  if (!isDryRun && !walletArg && !privateKeyFromEnv && !useStdin) {
+    console.error("Usage:");
+    console.error("  With env var (RECOMMENDED):  ORACLE_PRIVATE_KEY=<base58_key> node app/pyth_sim.cjs");
+    console.error("  With stdin:                  echo <base58_key> | node app/pyth_sim.cjs --private-key-stdin");
+    console.error("  With wallet file:            node app/pyth_sim.cjs <wallet.json>");
+    console.error("  Dry run mode:                node app/pyth_sim.cjs --dryrun");
+    console.error("");
+    console.error("Security Note: Environment variable method is recommended as it doesn't expose");
+    console.error("               keys in command history or process lists.");
     process.exit(1);
   }
 
@@ -174,17 +197,56 @@ function ixBatchSetPrices(index, btcPrice, ethPrice, solPrice, hypePrice, client
     console.log("🔍 DRY RUN MODE - No blockchain transactions will be sent\n");
   }
 
-  let walletPath, payer, payerPub, index;
-  if (walletArg) {
-    walletPath = path.isAbsolute(walletArg)
+  let payer, payerPub, index;
+
+  if (privateKeyFromEnv || useStdin) {
+    /* Load from environment variable or stdin (most secure) */
+    let privateKey;
+
+    if (privateKeyFromEnv) {
+      privateKey = privateKeyFromEnv;
+      console.log("✓ Loading keypair from ORACLE_PRIVATE_KEY environment variable");
+    } else if (useStdin) {
+      // Read from stdin
+      const readline = require('readline');
+      const rl = readline.createInterface({
+        input: process.stdin,
+        output: process.stdout,
+        terminal: false
+      });
+
+      privateKey = await new Promise((resolve) => {
+        rl.on('line', (line) => {
+          resolve(line.trim());
+          rl.close();
+        });
+      });
+      console.log("✓ Loading keypair from stdin");
+    }
+
+    try {
+      payer = keypairFromBase58(privateKey);
+      payerPub = payer.publicKey.toBase58();
+      index = ALLOWED.get(payerPub);
+      if (![1, 2, 3, 4].includes(index)) {
+        console.error("Public key not authorized for any index:", payerPub);
+        process.exit(1);
+      }
+      console.log(`Authorized public key ${payerPub} for index ${index}.`);
+    } catch (e) {
+      console.error("Failed to parse private key:", e.message);
+      console.error("Expected base58 encoded private key (64 bytes)");
+      process.exit(1);
+    }
+  } else if (walletArg) {
+    /* Load from wallet file (legacy method) */
+    const walletPath = path.isAbsolute(walletArg)
       ? walletArg
       : path.join(process.cwd(), walletArg);
     if (!fs.existsSync(walletPath)) {
       console.error("Wallet file not found:", walletPath);
       process.exit(1);
     }
-
-    /* RPC + wallet */
     payer = readKeypair(walletPath);
     payerPub = payer.publicKey.toBase58();
     index = ALLOWED.get(payerPub);
