@@ -246,6 +246,7 @@ function ixBatchSetPrices(index, btcPrice, ethPrice, solPrice, hypePrice, client
 
   // Setup logging
   let logStream = null;
+  let initializationComplete = false;
   const originalConsoleLog = console.log;
   const originalConsoleError = console.error;
   const originalConsoleWarn = console.warn;
@@ -253,26 +254,33 @@ function ixBatchSetPrices(index, btcPrice, ethPrice, solPrice, hypePrice, client
   if (logFile) {
     logStream = fs.createWriteStream(logFile, { flags: 'a' });
 
-    // Override console methods to write to both stdout and file
+    // Override console methods: file only after init, both during init
     console.log = function(...args) {
       const message = args.join(' ');
-      originalConsoleLog.apply(console, args);
+      if (!initializationComplete) {
+        originalConsoleLog.apply(console, args);
+      }
       logStream.write(new Date().toISOString() + ' [LOG] ' + message + '\n');
     };
 
     console.error = function(...args) {
       const message = args.join(' ');
-      originalConsoleError.apply(console, args);
+      if (!initializationComplete) {
+        originalConsoleError.apply(console, args);
+      }
       logStream.write(new Date().toISOString() + ' [ERROR] ' + message + '\n');
     };
 
     console.warn = function(...args) {
       const message = args.join(' ');
-      originalConsoleWarn.apply(console, args);
+      if (!initializationComplete) {
+        originalConsoleWarn.apply(console, args);
+      }
       logStream.write(new Date().toISOString() + ' [WARN] ' + message + '\n');
     };
 
-    console.log(`📝 Logging to file: ${logFile}`);
+    originalConsoleLog(`📝 Logging to file: ${logFile}`);
+    originalConsoleLog(`   Regular output will be suppressed after initialization`);
   }
 
   // Check for private key from environment variable (most secure)
@@ -603,6 +611,12 @@ function ixBatchSetPrices(index, btcPrice, ethPrice, solPrice, hypePrice, client
   /* Batch sender — only send if fixed-point i64 changes; no retry on expired */
   const TICK_MS = 750;
   let lastLogTime = 0; // Track last log time for non-verbose status (time-based throttle)
+
+  // Mark initialization complete - suppresses stdout when --log is used
+  if (logFile) {
+    initializationComplete = true;
+  }
+
   setInterval(async () => {
     try {
       // Build fresh list with the exact i64 that would be written
