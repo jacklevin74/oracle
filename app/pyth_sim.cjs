@@ -98,41 +98,53 @@ async function promptPrivateKey() {
   const readline = require('readline');
 
   return new Promise((resolve, reject) => {
-    const rl = readline.createInterface({
-      input: process.stdin,
-      output: process.stdout,
-      terminal: true
-    });
-
-    // Mute the output so password doesn't show
-    const stdin = process.stdin;
-    const mute = () => {
-      stdin.on('data', char => {
-        char = char.toString();
-        if (char === '\n' || char === '\r' || char === '\u0004') {
-          stdin.pause();
-        }
-      });
-    };
+    let input = '';
 
     console.log('\n🔐 Enter your private key (input will be hidden):');
     console.log('   Accepts: base58 string or JSON array [1,2,3,...]');
     console.log('');
     process.stdout.write('Private Key: ');
 
-    mute();
+    // Set raw mode to read key-by-key without echo
+    if (process.stdin.isTTY) {
+      process.stdin.setRawMode(true);
+    }
+    process.stdin.resume();
+    process.stdin.setEncoding('utf8');
 
-    rl.question('', (answer) => {
-      rl.close();
-      console.log('\n'); // New line after hidden input
-      resolve(answer.trim());
-    });
+    const onData = (char) => {
+      if (char === '\n' || char === '\r' || char === '\u0003' || char === '\u0004') {
+        // Enter, Ctrl+C, or Ctrl+D pressed
+        process.stdin.pause();
+        if (process.stdin.isTTY) {
+          process.stdin.setRawMode(false);
+        }
+        process.stdin.removeListener('data', onData);
+        console.log('\n'); // New line after hidden input
 
-    rl.on('close', () => {
-      if (!rl.line) {
-        reject(new Error('No input received'));
+        if (char === '\u0003') {
+          // Ctrl+C
+          console.log('\nCancelled by user');
+          process.exit(0);
+        }
+
+        if (!input || input.trim().length === 0) {
+          reject(new Error('No input received'));
+        } else {
+          resolve(input.trim());
+        }
+      } else if (char === '\u007f' || char === '\b') {
+        // Backspace
+        if (input.length > 0) {
+          input = input.slice(0, -1);
+        }
+      } else {
+        // Regular character
+        input += char;
       }
-    });
+    };
+
+    process.stdin.on('data', onData);
   });
 }
 function parsePrivateKey(input) {
