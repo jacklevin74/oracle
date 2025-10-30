@@ -244,6 +244,10 @@ function ixBatchSetPrices(index, btcPrice, ethPrice, solPrice, hypePrice, client
   const logArg = args.find(a => a.startsWith("--log="));
   const logFile = logArg ? logArg.split('=')[1] : null;
 
+  // Check if we should daemonize (background) after prompt
+  const shouldDaemonize = args.includes("--prompt") || args.includes("-p");
+  const isForkedChild = process.env.__ORACLE_FORKED === '1';
+
   // Setup logging
   let logStream = null;
   let initializationComplete = false;
@@ -331,6 +335,41 @@ function ixBatchSetPrices(index, btcPrice, ethPrice, solPrice, hypePrice, client
         console.error("Failed to read private key:", e.message);
         process.exit(1);
       }
+
+      // Fork to background if not already forked
+      if (shouldDaemonize && !isForkedChild) {
+        const { spawn } = require('child_process');
+
+        // Build arguments for child (replace --prompt with --private-key-stdin)
+        const childArgs = args.filter(a => a !== '--prompt' && a !== '-p');
+        childArgs.push('--private-key-stdin');
+
+        // Spawn child process detached
+        const child = spawn(process.execPath, [__filename, ...childArgs], {
+          detached: true,
+          stdio: ['pipe', 'ignore', 'ignore'],
+          env: { ...process.env, __ORACLE_FORKED: '1' }
+        });
+
+        // Write private key to child's stdin
+        child.stdin.write(privateKey + '\n');
+        child.stdin.end();
+
+        // Clear private key from parent
+        privateKey = '0'.repeat(privateKey.length);
+        privateKey = null;
+
+        // Unref so parent can exit
+        child.unref();
+
+        // Print success message and exit parent
+        originalConsoleLog(`\n✓ Oracle client forked to background (PID: ${child.pid})`);
+        if (logFile) {
+          originalConsoleLog(`  Logs: ${logFile}`);
+        }
+        originalConsoleLog(`  Process is now detached and running independently\n`);
+        process.exit(0);
+      }
     } else if (useStdin) {
       // Read from stdin
       const readline = require('readline');
@@ -370,8 +409,9 @@ function ixBatchSetPrices(index, btcPrice, ethPrice, solPrice, hypePrice, client
         console.error("Public key not authorized for any index:", payerPub);
         process.exit(1);
       }
-      console.log(`✓ Authorized public key ${payerPub} for index ${index}.`);
-      console.log(`✓ Private key cleared from memory and environment`);
+      // Always show auth info even with --log
+      originalConsoleLog(`✓ Authorized public key ${payerPub} for index ${index}.`);
+      originalConsoleLog(`✓ Private key cleared from memory and environment`);
     } catch (e) {
       console.error("Failed to parse private key:", e.message);
       console.error("Expected base58 string or JSON array [1,2,3,...]");
@@ -502,20 +542,21 @@ function ixBatchSetPrices(index, btcPrice, ethPrice, solPrice, hypePrice, client
   console.log(`      • ${colors.blue}KuCoin${colors.reset} ${colors.gray}(if available)${colors.reset}`);
   console.log(`      • ${colors.blue}MEXC${colors.reset} ${colors.gray}(if available)${colors.reset}`);
 
-  console.log("\n" + colors.cyan + "📤 OUTPUT:" + colors.reset);
+  // Always show output config even with --log
+  originalConsoleLog("\n" + colors.cyan + "📤 OUTPUT:" + colors.reset);
   if (isDryRun) {
-    console.log("    Mode: " + colors.yellow + "DRY RUN" + colors.reset + " " + colors.gray + "(logging only)" + colors.reset);
+    originalConsoleLog("    Mode: " + colors.yellow + "DRY RUN" + colors.reset + " " + colors.gray + "(logging only)" + colors.reset);
   } else {
-    console.log("    Mode: " + colors.red + "LIVE" + colors.reset + " " + colors.gray + "(sending to blockchain)" + colors.reset);
-    console.log(`    Target Program: ${colors.cyan}${PROGRAM_ID.toBase58()}${colors.reset}`);
-    console.log(`    Updater Index: ${colors.yellow}${index}${colors.reset}`);
+    originalConsoleLog("    Mode: " + colors.red + "LIVE" + colors.reset + " " + colors.gray + "(sending to blockchain)" + colors.reset);
+    originalConsoleLog(`    Target Program: ${colors.cyan}${PROGRAM_ID.toBase58()}${colors.reset}`);
+    originalConsoleLog(`    Updater Index: ${colors.yellow}${index}${colors.reset}`);
   }
-  console.log(colors.gray + "=".repeat(70) + "\n" + colors.reset);
+  originalConsoleLog(colors.gray + "=".repeat(70) + "\n" + colors.reset);
 
   if (!verbose) {
-    console.log(colors.gray + "ℹ️  Verbose logging disabled. Use --verbose or -v to see detailed updates." + colors.reset);
+    originalConsoleLog(colors.gray + "ℹ️  Verbose logging disabled. Use --verbose or -v to see detailed updates." + colors.reset);
   }
-  console.log("Starting price streams...\n");
+  originalConsoleLog("Starting price streams...\n");
 
   /* Start composite oracles for BTC, ETH, SOL, HYPE */
   const compositeBTC = new CompositeOracle({
