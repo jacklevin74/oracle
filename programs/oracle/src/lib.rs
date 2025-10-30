@@ -3,11 +3,11 @@ use std::str::FromStr;
 
 declare_id!("LuS6XnQ3qNXqNQvAJ3akXnEJRBv9XNoUricjMgTyCxX");
 
-// Hard-coded per-parameter updaters
-const PARAM1_UPDATER: &str = "AivknDqDUqnvyYVmDViiB2bEHKyUK5HcX91gWL2zgTZ4";
-const PARAM2_UPDATER: &str = "C3Un8Zf6pnyedk1AWDgqtZtKYLyiaZ4zwFPqJMVU2Trt";
-const PARAM3_UPDATER: &str = "129arbPoM1UXBtYk99PXbp4w1csc4d5hFXnX4mh7nYc5";
-const PARAM4_UPDATER: &str = "55MyuYePgkwAExNqtdNY4zahSyiM3stjjRm3Ym36sTA8";
+// Hard-coded per-parameter updaters (mainnet relays)
+const PARAM1_UPDATER: &str = "CGLezzdUpYmxiq3g5xdXxry8SWqwQbSxFJsdqfM13ro9"; // mn_relay1.json
+const PARAM2_UPDATER: &str = "FprJrTPJq9eKsVxEVhQCyRChEMaYzyTwcnK8aNfCae2D"; // mn_relay2.json
+const PARAM3_UPDATER: &str = "7FZvQQE1VDq2fFSuBmCCxmo8tPNm9LfYqF9BMkbyp1by"; // mn_relay3.json
+const PARAM4_UPDATER: &str = "55MyuYePgkwAExNqtdNY4zahSyiM3stjjRm3Ym36sTA8"; // Reserved for future use
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, PartialEq, Eq)]
 pub enum Asset {

@@ -61,10 +61,10 @@ const DISC = {
 
 /* Allowed updaters → index (must match on-chain allow-list) */
 const ALLOWED = new Map([
-  ["AivknDqDUqnvyYVmDViiB2bEHKyUK5HcX91gWL2zgTZ4", 1],
-  ["C3Un8Zf6pnyedk1AWDgqtZtKYLyiaZ4zwFPqJMVU2Trt", 2],
-  ["129arbPoM1UXBtYk99PXbp4w1csc4d5hFXnX4mh7nYc5", 3],
-  ["55MyuYePgkwAExNqtdNY4zahSyiM3stjjRm3Ym36sTA8", 4],
+  ["CGLezzdUpYmxiq3g5xdXxry8SWqwQbSxFJsdqfM13ro9", 1], // mn_relay1.json
+  ["FprJrTPJq9eKsVxEVhQCyRChEMaYzyTwcnK8aNfCae2D", 2], // mn_relay2.json
+  ["7FZvQQE1VDq2fFSuBmCCxmo8tPNm9LfYqF9BMkbyp1by", 3], // mn_relay3.json
+  ["55MyuYePgkwAExNqtdNY4zahSyiM3stjjRm3Ym36sTA8", 4], // Reserved
 ]);
 
 /* Asset ids (must match your program enum) */
