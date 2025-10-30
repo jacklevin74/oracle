@@ -138,8 +138,12 @@ function startWithPM2(privateKey, processName, verbose) {
     const scriptPath = path.join(__dirname, 'pyth_sim.cjs');
 
     // Build PM2 start command
-    const verboseFlag = verbose ? '--verbose' : '';
-    const cmd = `pm2 start ${scriptPath} --name ${processName} --time --log-date-format "YYYY-MM-DD HH:mm:ss Z" -- ${verboseFlag}`;
+    let cmd = `pm2 start ${scriptPath} --name ${processName} --time --log-date-format "YYYY-MM-DD HH:mm:ss Z"`;
+
+    // Only add -- if there are script arguments
+    if (verbose) {
+      cmd += ' -- --verbose';
+    }
 
     log(`Starting oracle client under PM2...`);
     log(`Process name: ${colors.yellow}${processName}${colors.reset}`);
