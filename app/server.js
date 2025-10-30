@@ -11,7 +11,7 @@ import { Connection, PublicKey } from "@solana/web3.js";
 /* ----------- CONFIG (must match your on-chain program) ----------- */
 const PROGRAM_ID = new PublicKey("LuS6XnQ3qNXqNQvAJ3akXnEJRBv9XNoUricjMgTyCxX");
 const STATE_SEED = Buffer.from("state_v2"); // PDA seed
-const RPC_URL = process.env.RPC_URL || "https://rpc.testnet.x1.xyz";
+const RPC_URL = process.env.RPC_URL || "https://rpc.mainnet.x1.xyz";
 const HOST = "0.0.0.0";
 const PORT = 3000;
 const COMMITMENT = "processed";
