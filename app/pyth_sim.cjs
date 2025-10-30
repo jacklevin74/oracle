@@ -240,6 +240,41 @@ function ixBatchSetPrices(index, btcPrice, ethPrice, solPrice, hypePrice, client
   const isDryRun = args.includes("--dryrun") || args.includes("--dry-run");
   const verbose = args.includes("--verbose") || args.includes("-v");
 
+  // Check for log file option
+  const logArg = args.find(a => a.startsWith("--log="));
+  const logFile = logArg ? logArg.split('=')[1] : null;
+
+  // Setup logging
+  let logStream = null;
+  const originalConsoleLog = console.log;
+  const originalConsoleError = console.error;
+  const originalConsoleWarn = console.warn;
+
+  if (logFile) {
+    logStream = fs.createWriteStream(logFile, { flags: 'a' });
+
+    // Override console methods to write to both stdout and file
+    console.log = function(...args) {
+      const message = args.join(' ');
+      originalConsoleLog.apply(console, args);
+      logStream.write(new Date().toISOString() + ' [LOG] ' + message + '\n');
+    };
+
+    console.error = function(...args) {
+      const message = args.join(' ');
+      originalConsoleError.apply(console, args);
+      logStream.write(new Date().toISOString() + ' [ERROR] ' + message + '\n');
+    };
+
+    console.warn = function(...args) {
+      const message = args.join(' ');
+      originalConsoleWarn.apply(console, args);
+      logStream.write(new Date().toISOString() + ' [WARN] ' + message + '\n');
+    };
+
+    console.log(`📝 Logging to file: ${logFile}`);
+  }
+
   // Check for private key from environment variable (most secure)
   const privateKeyFromEnv = process.env.ORACLE_PRIVATE_KEY;
 
@@ -265,6 +300,11 @@ function ixBatchSetPrices(index, btcPrice, ethPrice, solPrice, hypePrice, client
     console.error("  --private-key-stdin        Read private key from stdin");
     console.error("  --dryrun                   Run without sending transactions");
     console.error("  --verbose, -v              Enable continuous logging (off by default)");
+    console.error("  --log=<file>               Write logs to specified file (appends)");
+    console.error("");
+    console.error("Examples:");
+    console.error("  node app/pyth_sim.cjs --prompt --log=/var/log/oracle.log");
+    console.error("  node app/pyth_sim.cjs --prompt --verbose --log=./oracle.log");
     console.error("");
     console.error("🔒 Security: --prompt and env var methods don't expose keys in history or process lists");
     process.exit(1);
@@ -834,11 +874,22 @@ function ixBatchSetPrices(index, btcPrice, ethPrice, solPrice, hypePrice, client
       compositeETH.stop();
       compositeSOL.stop();
       compositeHYPE.stop();
+
+      // Close log stream if open
+      if (logStream) {
+        logStream.end();
+      }
     } catch {}
     process.exit(0);
   });
 })().catch((e) => {
   console.error("Fatal:", e?.message ?? e);
+
+  // Close log stream on fatal error
+  if (logStream) {
+    logStream.end();
+  }
+
   process.exit(1);
 });
 

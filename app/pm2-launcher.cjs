@@ -20,6 +20,7 @@ const colors = {
 const args = process.argv.slice(2);
 const verbose = args.includes('--verbose') || args.includes('-v');
 const appName = args.find(a => a.startsWith('--name='))?.split('=')[1] || 'oracle-client';
+const logFile = args.find(a => a.startsWith('--log='))?.split('=')[1];
 
 function log(msg) {
   console.log(`${colors.cyan}[PM2 Launcher]${colors.reset} ${msg}`);
@@ -133,7 +134,7 @@ async function stopExistingProcess(name) {
 }
 
 // Start process with PM2
-function startWithPM2(privateKey, processName, verbose) {
+function startWithPM2(privateKey, processName, verbose, logFile) {
   return new Promise((resolve, reject) => {
     // Use stdin wrapper to avoid environment variables completely
     const wrapperPath = path.join(__dirname, 'pm2-stdin-wrapper.cjs');
@@ -141,6 +142,9 @@ function startWithPM2(privateKey, processName, verbose) {
     log(`Starting oracle client under PM2...`);
     log(`Process name: ${colors.yellow}${processName}${colors.reset}`);
     log(`Verbose mode: ${verbose ? colors.green + 'enabled' : colors.gray + 'disabled'}${colors.reset}`);
+    if (logFile) {
+      log(`Log file: ${colors.cyan}${logFile}${colors.reset}`);
+    }
     log(`${colors.green}Using stdin pipe (no environment variables, no shell history)${colors.reset}`);
 
     // Build PM2 arguments
@@ -152,9 +156,17 @@ function startWithPM2(privateKey, processName, verbose) {
       '--log-date-format', 'YYYY-MM-DD HH:mm:ss Z'
     ];
 
-    // Add script arguments if verbose
+    // Add script arguments
+    const scriptArgs = [];
     if (verbose) {
-      pm2Args.push('--', '--verbose');
+      scriptArgs.push('--verbose');
+    }
+    if (logFile) {
+      scriptArgs.push(`--log=${logFile}`);
+    }
+
+    if (scriptArgs.length > 0) {
+      pm2Args.push('--', ...scriptArgs);
     }
 
     // Spawn PM2 with stdin pipe (no shell, no echo, no history!)
@@ -256,7 +268,7 @@ async function main() {
 
   // Start with PM2
   try {
-    await startWithPM2(privateKey, appName, verbose);
+    await startWithPM2(privateKey, appName, verbose, logFile);
     success(`Oracle client started successfully!`);
 
     // Show management commands
@@ -283,6 +295,7 @@ ${colors.yellow}Usage:${colors.reset}
 ${colors.yellow}Options:${colors.reset}
   --verbose, -v          Enable verbose logging in oracle client
   --name=<name>          Set PM2 process name (default: oracle-client)
+  --log=<file>           Write logs to specified file
   --help, -h             Show this help message
 
 ${colors.yellow}Examples:${colors.reset}
@@ -294,6 +307,12 @@ ${colors.yellow}Examples:${colors.reset}
 
   ${colors.gray}# Launch with custom process name${colors.reset}
   node app/pm2-launcher.js --name=oracle-prod
+
+  ${colors.gray}# Launch with log file${colors.reset}
+  node app/pm2-launcher.js --log=/var/log/oracle.log
+
+  ${colors.gray}# Launch with all options${colors.reset}
+  node app/pm2-launcher.js --verbose --name=oracle-prod --log=./oracle.log
 
 ${colors.yellow}Security:${colors.reset}
   Your private key is passed securely via environment variable.
