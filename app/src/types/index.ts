@@ -63,10 +63,9 @@ export interface LastSentI64 {
 export interface CompositeData {
   price: number | null;
   count: number;
-  sources: Array<{
-    source: string;
+  sources?: Record<string, {
     price: number;
-    age: number;
+    ts: number;
   }>;
 }
 

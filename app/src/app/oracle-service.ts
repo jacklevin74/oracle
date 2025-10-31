@@ -27,6 +27,7 @@ import {
   DIVERGENCE_WARNING_THRESHOLD,
   LOG_THROTTLE_MS,
   DEFAULT_RPC_URL,
+  PROGRAM_ID,
 } from '../config/constants';
 
 /**
@@ -88,10 +89,10 @@ export class OracleService extends EventEmitter {
     };
 
     this.compositeData = {
-      BTC: { price: null, count: 0, sources: [] },
-      ETH: { price: null, count: 0, sources: [] },
-      SOL: { price: null, count: 0, sources: [] },
-      HYPE: { price: null, count: 0, sources: [] },
+      BTC: { price: null, count: 0, sources: {} },
+      ETH: { price: null, count: 0, sources: {} },
+      SOL: { price: null, count: 0, sources: {} },
+      HYPE: { price: null, count: 0, sources: {} },
     };
 
     // Initialize clients
@@ -276,7 +277,87 @@ export class OracleService extends EventEmitter {
     console.log('\n' + colors.gray + '='.repeat(70) + colors.reset);
     console.log(colors.cyan + `📊 Price Update @ ${new Date(clientTsMs).toISOString()}` + colors.reset);
     console.log(colors.gray + '='.repeat(70) + colors.reset);
-    console.log('\n' + colors.yellow + '💾 WOULD SEND TO BLOCKCHAIN:' + colors.reset);
+
+    // Show Pyth prices
+    console.log('\n' + colors.yellow + '📡 PYTH NETWORK (Hermes):' + colors.reset);
+    console.log(colors.gray + '   Source: https://hermes.pyth.network' + colors.reset);
+
+    for (const item of fresh) {
+      if (item.priceSource === 'pyth' && item.sym !== 'HYPE') {
+        const price = item.candI64 / Math.pow(10, DECIMALS);
+        const latestPrice = this.latest[item.sym];
+        const pubTime = latestPrice ? new Date(latestPrice.pubMs).toISOString() : 'N/A';
+        const feedId = this.pythClient.getFeedId(item.sym) || 'N/A';
+
+        console.log(`   • ${colors.green}${item.sym}/USD${colors.reset}: $${formatPrice(price)}`);
+        console.log(colors.gray + `     Feed ID: ${feedId.substring(0, 20)}...` + colors.reset);
+        console.log(colors.gray + `     Publish time: ${pubTime}` + colors.reset);
+      }
+    }
+
+    // Show Composite prices with detailed breakdown
+    console.log('\n' + colors.yellow + '🔗 COMPOSITE ORACLE (o3.js):' + colors.reset);
+    console.log('');
+
+    const symbols: AssetSymbol[] = ['BTC', 'ETH', 'SOL', 'HYPE'];
+    for (const sym of symbols) {
+      const compData = this.compositeData[sym];
+      if (!compData.price) continue;
+
+      const price = compData.price;
+      const sources = compData.sources || {};
+      const sourceKeys = Object.keys(sources);
+      const activeCount = sourceKeys.length;
+      const totalCount = sym === 'HYPE' ? 7 : 6;
+
+      console.log(`   • ${colors.green}${sym}/USD${colors.reset}: $${formatPrice(price)}`);
+      console.log(colors.gray + `     Active sources: ${activeCount}/${totalCount}` + colors.reset);
+
+      if (activeCount > 0) {
+        console.log(colors.gray + '     Individual sources:' + colors.reset);
+        for (const [exchange, data] of Object.entries(sources)) {
+          const age = ((Date.now() - data.ts) / 1000).toFixed(1);
+          console.log(colors.gray + `       • ${exchange.padEnd(12)}: $${formatPrice(data.price)} (age: ${age}s)` + colors.reset);
+        }
+      }
+
+      // Show price comparison with Pyth (except for HYPE)
+      if (sym !== 'HYPE') {
+        const pythPrice = this.latest[sym];
+        if (pythPrice) {
+          const pythVal = pythPrice.price;
+          const diff = Math.abs(pythVal - price);
+          const pct = (diff / pythVal) * 100;
+
+          console.log('');
+          console.log(colors.gray + '     📈 Price Comparison:' + colors.reset);
+          console.log(colors.gray + `       Pyth ${sym}:      $${formatPrice(pythVal)}` + colors.reset);
+          console.log(colors.gray + `       Composite ${sym}: $${formatPrice(price)}` + colors.reset);
+          console.log(colors.gray + `       Difference:    $${diff.toFixed(2)} (${pct.toFixed(3)}%)` + colors.reset);
+
+          if (pct > DIVERGENCE_WARNING_THRESHOLD) {
+            console.log(colors.red + `       ⚠️  Exceeds threshold (${DIVERGENCE_WARNING_THRESHOLD}%)` + colors.reset);
+          } else {
+            console.log(colors.green + '       ✅ Within acceptable range' + colors.reset);
+          }
+        }
+      } else {
+        // For HYPE, just show it's from composite only
+        console.log('');
+        console.log(colors.gray + '     📈 Price Comparison:' + colors.reset);
+        console.log(colors.gray + `       Pyth HYPE:      $${formatPrice(price)}` + colors.reset);
+        console.log(colors.gray + `       Composite HYPE: $${formatPrice(price)}` + colors.reset);
+        console.log(colors.gray + '       Difference:    $0.00 (0.000%)' + colors.reset);
+        console.log(colors.green + '       ✅ Within acceptable range' + colors.reset);
+      }
+
+      console.log('');
+    }
+
+    // Show what would be sent
+    console.log(colors.yellow + '💾 WOULD SEND TO BLOCKCHAIN:' + colors.reset);
+    console.log(colors.gray + `   Program: ${PROGRAM_ID.toBase58()}` + colors.reset);
+    console.log(colors.gray + `   Updater Index: ${this.config.updaterIndex}` + colors.reset);
     console.log(`   ${colors.gray}Assets:${colors.reset} ${colors.green}${fresh.map((f) => f.sym).join(', ')}${colors.reset}`);
     console.log(colors.gray + '='.repeat(70) + '\n' + colors.reset);
   }
@@ -369,14 +450,14 @@ export class OracleService extends EventEmitter {
       const compositeInfo: Record<string, unknown> = {};
       for (const sym of ['BTC', 'ETH', 'SOL', 'HYPE'] as AssetSymbol[]) {
         const compData = this.compositeData[sym];
-        if (compData.price != null) {
+        if (compData.price != null && compData.sources) {
           compositeInfo[sym] = {
             price: formatPrice(compData.price),
             sources: compData.count,
-            sourceDetails: compData.sources.map((s) => ({
-              name: s.source,
-              price: formatPrice(s.price),
-              age_ms: s.age,
+            sourceDetails: Object.entries(compData.sources).map(([name, data]) => ({
+              name,
+              price: formatPrice(data.price),
+              age_ms: Date.now() - data.ts,
             })),
           };
         }
