@@ -27,33 +27,34 @@ export function forkToBackground(options: ForkOptions): never {
   const childArgs = args.filter((a) => a !== '--prompt' && a !== '-p' && a !== '--daemon' && a !== '-d');
   childArgs.push('--private-key-stdin');
 
-  // Display comprehensive startup status information
-  console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-  console.log('  Oracle Client - Daemon Initialization');
-  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+  // Display comprehensive startup status information directly to stdout
+  // (bypasses console.log override to ensure output appears on terminal)
+  process.stdout.write('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+  process.stdout.write('  Oracle Client - Daemon Initialization\n');
+  process.stdout.write('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n');
 
   // Show all allowed updater public keys
-  console.log('✓ Authorized updater public keys:');
+  process.stdout.write('✓ Authorized updater public keys:\n');
   for (const [pubkey, idx] of ALLOWED_UPDATERS.entries()) {
     const marker = idx === index ? ' ← ACTIVE' : '';
-    console.log(`  [${idx}] ${pubkey}${marker}`);
+    process.stdout.write(`  [${idx}] ${pubkey}${marker}\n`);
   }
 
   // Show loaded private key status (without revealing it)
-  console.log('\n✓ Private key validated successfully');
-  console.log(`✓ Using updater index: ${index}`);
-  console.log(`✓ Public key: ${keypair.publicKey.toBase58()}`);
+  process.stdout.write('\n✓ Private key validated successfully\n');
+  process.stdout.write(`✓ Using updater index: ${index}\n`);
+  process.stdout.write(`✓ Public key: ${keypair.publicKey.toBase58()}\n`);
 
   // Show target configuration
-  console.log(`\n✓ Target program: ${PROGRAM_ID.toBase58()}`);
-  console.log(`✓ RPC endpoint: ${rpcUrl}`);
+  process.stdout.write(`\n✓ Target program: ${PROGRAM_ID.toBase58()}\n`);
+  process.stdout.write(`✓ RPC endpoint: ${rpcUrl}\n`);
 
   // Show log file location
   if (logFile) {
-    console.log(`✓ Log file: ${logFile}`);
+    process.stdout.write(`✓ Log file: ${logFile}\n`);
   }
 
-  console.log('\n✓ All systems ready - forking to background...\n');
+  process.stdout.write('\n✓ All systems ready - forking to background...\n\n');
 
   // Get the entry point script that was used to start this process
   const scriptPath = process.argv[1];
@@ -81,11 +82,11 @@ export function forkToBackground(options: ForkOptions): never {
   // Unref so parent can exit
   child.unref();
 
-  // Print success message and exit parent
-  console.log(`\n✓ Oracle client forked to background (PID: ${child.pid})`);
+  // Print success message and exit parent (using stdout to bypass console.log override)
+  process.stdout.write(`\n✓ Oracle client forked to background (PID: ${child.pid})\n`);
   if (logFile) {
-    console.log(`  Logs: ${logFile}`);
+    process.stdout.write(`  Logs: ${logFile}\n`);
   }
-  console.log(`  Process is now detached and running independently\n`);
+  process.stdout.write(`  Process is now detached and running independently\n\n`);
   process.exit(0);
 }
