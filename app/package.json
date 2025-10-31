@@ -1,0 +1,53 @@
+{
+  "name": "oracle-price-updater",
+  "version": "2.0.0",
+  "description": "TypeScript-based Oracle Price Updater for Solana blockchain",
+  "main": "dist/index.js",
+  "bin": {
+    "oracle-updater": "./dist/index.js"
+  },
+  "type": "commonjs",
+  "scripts": {
+    "build": "tsc",
+    "build:watch": "tsc --watch",
+    "start": "node dist/index.js",
+    "dev": "ts-node src/index.ts",
+    "clean": "rm -rf dist",
+    "lint": "eslint 'src/**/*.ts'",
+    "lint:fix": "eslint 'src/**/*.ts' --fix",
+    "format": "prettier --write 'src/**/*.ts'",
+    "format:check": "prettier --check 'src/**/*.ts'",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "solana",
+    "oracle",
+    "price-feed",
+    "pyth",
+    "cryptocurrency",
+    "blockchain"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@pythnetwork/hermes-client": "^2.0.0",
+    "@pythnetwork/price-service-client": "^1.9.0",
+    "@solana/web3.js": "^1.98.4",
+    "bs58": "^5.0.0",
+    "protobufjs": "^7.4.0",
+    "ws": "^8.18.3"
+  },
+  "devDependencies": {
+    "@types/node": "^20.17.10",
+    "@types/ws": "^8.5.13",
+    "@typescript-eslint/eslint-plugin": "^6.21.0",
+    "@typescript-eslint/parser": "^6.21.0",
+    "eslint": "^8.57.1",
+    "prettier": "^3.4.2",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.7.3"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}

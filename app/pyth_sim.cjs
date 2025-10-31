@@ -234,6 +234,8 @@ function ixBatchSetPrices(index, btcPrice, ethPrice, solPrice, hypePrice, client
 }
 
 /* ===== main ===== */
+let logStream = null; // Module-level for access in catch block
+
 ;(async () => {
   /* CLI */
   const args = process.argv.slice(2);
@@ -313,7 +315,6 @@ function ixBatchSetPrices(index, btcPrice, ethPrice, solPrice, hypePrice, client
   });
 
   // Setup logging
-  let logStream = null;
   let initializationComplete = false;
   const originalConsoleLog = console.log;
   const originalConsoleError = console.error;

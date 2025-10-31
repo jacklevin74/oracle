@@ -1,0 +1,468 @@
+/**
+ * Oracle service - Main application orchestrator
+ */
+
+import { Connection, Keypair } from '@solana/web3.js';
+import { EventEmitter } from 'events';
+import {
+  AssetSymbol,
+  LatestPrices,
+  SentPriceTracking,
+  LastSentI64,
+  CompositeTracking,
+  PriceUpdateItem,
+  CompositeData,
+  PriceData,
+  DivergenceWarning,
+} from '../types';
+import { TransactionBuilder } from '../solana/transaction-builder';
+import { PythClient } from '../oracles/pyth-client';
+import { CompositeClient, COMPOSITE_CONFIGS } from '../oracles/composite-client';
+import { Logger } from '../utils/logger';
+import { toFixedI64, formatPrice } from '../utils/formatting';
+import { colors } from '../config/colors';
+import {
+  DECIMALS,
+  TICK_MS,
+  DIVERGENCE_WARNING_THRESHOLD,
+  LOG_THROTTLE_MS,
+  DEFAULT_RPC_URL,
+} from '../config/constants';
+
+/**
+ * Oracle service configuration
+ */
+export interface OracleServiceConfig {
+  rpcUrl?: string;
+  updaterKeypair: Keypair;
+  updaterIndex: number;
+  isDryRun?: boolean;
+  logger: Logger;
+}
+
+/**
+ * Oracle service for managing price feeds and updates
+ */
+export class OracleService extends EventEmitter {
+  private config: OracleServiceConfig;
+  private txBuilder: TransactionBuilder | null = null;
+  private pythClient: PythClient;
+  private compositeClient: CompositeClient;
+  private logger: Logger;
+
+  // Price tracking
+  private latest: LatestPrices;
+  private sentUpTo: SentPriceTracking;
+  private lastSentI64: LastSentI64;
+  private compositeData: CompositeTracking;
+
+  // Update loop
+  private updateInterval: NodeJS.Timeout | null = null;
+  private lastLogTime: number = 0;
+
+  constructor(config: OracleServiceConfig) {
+    super();
+    this.config = config;
+    this.logger = config.logger;
+
+    // Initialize price tracking
+    this.latest = {
+      BTC: null,
+      ETH: null,
+      SOL: null,
+      HYPE: null,
+    };
+
+    this.sentUpTo = {
+      BTC: 0,
+      ETH: 0,
+      SOL: 0,
+      HYPE: 0,
+    };
+
+    this.lastSentI64 = {
+      BTC: null,
+      ETH: null,
+      SOL: null,
+      HYPE: null,
+    };
+
+    this.compositeData = {
+      BTC: { price: null, count: 0, sources: [] },
+      ETH: { price: null, count: 0, sources: [] },
+      SOL: { price: null, count: 0, sources: [] },
+      HYPE: { price: null, count: 0, sources: [] },
+    };
+
+    // Initialize clients
+    this.pythClient = new PythClient();
+    this.compositeClient = new CompositeClient();
+
+    // Setup event handlers
+    this.setupPythHandlers();
+    this.setupCompositeHandlers();
+  }
+
+  /**
+   * Setup Pyth price feed handlers
+   */
+  private setupPythHandlers(): void {
+    this.pythClient.on('price', (symbol: AssetSymbol, priceData: PriceData) => {
+      this.latest[symbol] = priceData;
+    });
+  }
+
+  /**
+   * Setup composite oracle handlers
+   */
+  private setupCompositeHandlers(): void {
+    this.compositeClient.on('price', (symbol: AssetSymbol, data: CompositeData) => {
+      this.compositeData[symbol] = data;
+    });
+  }
+
+  /**
+   * Initialize the oracle service
+   */
+  async initialize(): Promise<void> {
+    const rpcUrl = this.config.rpcUrl || DEFAULT_RPC_URL;
+
+    if (!this.config.isDryRun) {
+      const connection = new Connection(rpcUrl, 'processed');
+      this.txBuilder = new TransactionBuilder(connection);
+
+      // Initialize state account if needed
+      await this.txBuilder.initializeIfNeeded(this.config.updaterKeypair);
+    }
+
+    this.logger.logToConsole('Starting price streams...\n');
+
+    // Start Pyth feeds (BTC, ETH, SOL - no HYPE on Pyth)
+    await this.pythClient.subscribe();
+    this.logger.logToConsole(colors.green + '✓ Connected to Pyth Network (BTC, ETH, SOL)' + colors.reset);
+
+    // Start composite oracles for all assets
+    for (const symbol of Object.keys(COMPOSITE_CONFIGS) as AssetSymbol[]) {
+      this.compositeClient.startOracle(symbol, COMPOSITE_CONFIGS[symbol]);
+    }
+    this.logger.logToConsole(
+      colors.green + '✓ Connected to Composite Oracle exchanges:' + colors.reset +
+      colors.gray + '\n   Kraken, Coinbase, KuCoin, Binance, MEXC, Bybit, Hyperliquid' + colors.reset
+    );
+    this.logger.logToConsole(colors.gray + '   Aggregating: BTC, ETH, SOL, HYPE' + colors.reset);
+    this.logger.logToConsole('');
+  }
+
+  /**
+   * Display data sources configuration
+   */
+  displayDataSources(): void {
+    this.logger.logToConsole('\n' + colors.gray + '='.repeat(70) + colors.reset);
+    this.logger.logToConsole(colors.cyan + '📡 DATA SOURCES CONFIGURATION' + colors.reset);
+    this.logger.logToConsole(colors.gray + '='.repeat(70) + colors.reset);
+
+    this.logger.logToConsole('\n' + colors.yellow + '1️⃣  PYTH NETWORK (Hermes)' + colors.reset);
+    this.logger.logToConsole(colors.gray + '    URL: https://hermes.pyth.network' + colors.reset);
+    this.logger.logToConsole('    Provides: ' + colors.green + 'BTC/USD, ETH/USD, SOL/USD' + colors.reset);
+
+    this.logger.logToConsole('\n' + colors.yellow + '2️⃣  COMPOSITE ORACLE (o3.js)' + colors.reset);
+    this.logger.logToConsole('    Aggregates ' + colors.green + 'BTC/USD, ETH/USD, SOL/USD' + colors.reset + ' from multiple exchanges');
+
+    this.logger.logToConsole('\n' + colors.yellow + '3️⃣  HYPE TOKEN (Composite Oracle Only)' + colors.reset);
+    this.logger.logToConsole('    ' + colors.magenta + 'HYPE/USD' + colors.reset + ' sourced exclusively from exchanges');
+
+    this.logger.logToConsole('\n' + colors.cyan + '📤 OUTPUT:' + colors.reset);
+    if (this.config.isDryRun) {
+      this.logger.logToConsole('    Mode: ' + colors.yellow + 'DRY RUN' + colors.reset);
+    } else {
+      this.logger.logToConsole('    Mode: ' + colors.red + 'LIVE' + colors.reset);
+      this.logger.logToConsole(`    Updater Index: ${colors.yellow}${this.config.updaterIndex}${colors.reset}`);
+    }
+    this.logger.logToConsole(colors.gray + '='.repeat(70) + '\n' + colors.reset);
+
+    if (!this.logger.isVerbose()) {
+      this.logger.logToConsole(colors.gray + 'ℹ️  Verbose logging disabled. Use --verbose or -v to see detailed updates.' + colors.reset);
+    }
+  }
+
+  /**
+   * Get fresh price updates that need to be sent
+   */
+  private getFreshUpdates(): PriceUpdateItem[] {
+    const fresh: PriceUpdateItem[] = [];
+    const symbols: AssetSymbol[] = ['BTC', 'ETH', 'SOL', 'HYPE'];
+
+    for (const sym of symbols) {
+      let priceToUse: number;
+      let pubMsToUse: number;
+      let priceSource: 'pyth' | 'composite';
+
+      // HYPE uses composite oracle only (no Pyth feed)
+      if (sym === 'HYPE') {
+        const compData = this.compositeData[sym];
+        if (compData.price == null) continue;
+        priceToUse = compData.price;
+        pubMsToUse = Date.now();
+        priceSource = 'composite';
+      } else {
+        // BTC, ETH, SOL use Pyth
+        const latestPrice = this.latest[sym];
+        if (!latestPrice) continue;
+        priceToUse = latestPrice.price;
+        pubMsToUse = latestPrice.pubMs;
+        priceSource = 'pyth';
+      }
+
+      const candI64 = toFixedI64(priceToUse, DECIMALS);
+      const newerPub = pubMsToUse > this.sentUpTo[sym];
+      const changedI64 = this.lastSentI64[sym] == null || candI64 !== this.lastSentI64[sym];
+
+      if (newerPub && changedI64) {
+        fresh.push({ sym, candI64, priceSource });
+      }
+    }
+
+    return fresh;
+  }
+
+  /**
+   * Calculate price divergence warnings
+   */
+  private calculateDivergence(fresh: PriceUpdateItem[]): DivergenceWarning[] {
+    const warnings: DivergenceWarning[] = [];
+
+    for (const item of fresh) {
+      const compData = this.compositeData[item.sym];
+      if (compData.price == null) continue;
+
+      const pythPrice = item.candI64 / Math.pow(10, DECIMALS);
+      const diff = Math.abs(pythPrice - compData.price);
+      const pct = (diff / compData.price) * 100;
+
+      if (pct > DIVERGENCE_WARNING_THRESHOLD) {
+        warnings.push({
+          asset: item.sym,
+          pythPrice,
+          compositePrice: compData.price,
+          percentage: pct,
+        });
+      }
+    }
+
+    return warnings;
+  }
+
+  /**
+   * Handle dry run update
+   */
+  private handleDryRunUpdate(fresh: PriceUpdateItem[], clientTsMs: number): void {
+    if (this.logger.isVerbose()) {
+      this.logVerboseDryRun(fresh, clientTsMs);
+    } else {
+      this.logMinimalDryRun(fresh);
+    }
+
+    // Mark as sent in dry run
+    for (const { sym, candI64, priceSource } of fresh) {
+      this.sentUpTo[sym] = priceSource === 'pyth' && this.latest[sym] ? this.latest[sym]!.pubMs : Date.now();
+      this.lastSentI64[sym] = candI64;
+    }
+  }
+
+  /**
+   * Log verbose dry run output
+   */
+  private logVerboseDryRun(fresh: PriceUpdateItem[], clientTsMs: number): void {
+    console.log('\n' + colors.gray + '='.repeat(70) + colors.reset);
+    console.log(colors.cyan + `📊 Price Update @ ${new Date(clientTsMs).toISOString()}` + colors.reset);
+    console.log(colors.gray + '='.repeat(70) + colors.reset);
+    console.log('\n' + colors.yellow + '💾 WOULD SEND TO BLOCKCHAIN:' + colors.reset);
+    console.log(`   ${colors.gray}Assets:${colors.reset} ${colors.green}${fresh.map((f) => f.sym).join(', ')}${colors.reset}`);
+    console.log(colors.gray + '='.repeat(70) + '\n' + colors.reset);
+  }
+
+  /**
+   * Log minimal dry run output (throttled)
+   */
+  private logMinimalDryRun(fresh: PriceUpdateItem[]): void {
+    const now = Date.now();
+    if (now - this.lastLogTime >= LOG_THROTTLE_MS) {
+      const priceStr = fresh
+        .map(({ sym, candI64 }) => `${sym}=$${formatPrice(candI64 / Math.pow(10, DECIMALS))}`)
+        .join(', ');
+      console.log(`${colors.gray}[${new Date().toISOString()}]${colors.reset} ✓ Would send: ${priceStr}`);
+      this.lastLogTime = now;
+    }
+  }
+
+  /**
+   * Handle live update (send transaction)
+   */
+  private async handleLiveUpdate(fresh: PriceUpdateItem[], clientTsMs: number): Promise<void> {
+    if (!this.txBuilder) {
+      throw new Error('Transaction builder not initialized');
+    }
+
+    const t0 = Date.now();
+
+    // Collect prices for all 4 assets
+    const btcData = fresh.find((f) => f.sym === 'BTC');
+    const ethData = fresh.find((f) => f.sym === 'ETH');
+    const solData = fresh.find((f) => f.sym === 'SOL');
+    const hypeData = fresh.find((f) => f.sym === 'HYPE');
+
+    const btcPrice = btcData ? btcData.candI64 : this.lastSentI64.BTC || 0;
+    const ethPrice = ethData ? ethData.candI64 : this.lastSentI64.ETH || 0;
+    const solPrice = solData ? solData.candI64 : this.lastSentI64.SOL || 0;
+    const hypePrice = hypeData ? hypeData.candI64 : this.lastSentI64.HYPE || 0;
+
+    const tRecv = Date.now();
+
+    try {
+      const sig = await this.txBuilder.sendBatchPriceUpdate(
+        this.config.updaterKeypair,
+        this.config.updaterIndex,
+        btcPrice,
+        ethPrice,
+        solPrice,
+        hypePrice,
+        clientTsMs
+      );
+
+      const tSent = Date.now();
+
+      // Mark sent
+      for (const { sym, candI64, priceSource } of fresh) {
+        this.sentUpTo[sym] = priceSource === 'pyth' && this.latest[sym] ? this.latest[sym]!.pubMs : Date.now();
+        this.lastSentI64[sym] = candI64;
+      }
+
+      // Log result
+      this.logTransactionResult(fresh, sig, clientTsMs, tRecv, tSent, t0);
+
+      // Check divergence
+      const warnings = this.calculateDivergence(fresh);
+      if (warnings.length > 0) {
+        this.logDivergenceWarnings(warnings);
+      }
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('Blockhash expired')) {
+        console.warn('[send/batch] skipped: blockhash expired (no retry)');
+        return;
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Log transaction result
+   */
+  private logTransactionResult(
+    fresh: PriceUpdateItem[],
+    sig: string,
+    clientTsMs: number,
+    tRecv: number,
+    tSent: number,
+    t0: number
+  ): void {
+    if (this.logger.isVerbose()) {
+      const compositeInfo: Record<string, unknown> = {};
+      for (const sym of ['BTC', 'ETH', 'SOL', 'HYPE'] as AssetSymbol[]) {
+        const compData = this.compositeData[sym];
+        if (compData.price != null) {
+          compositeInfo[sym] = {
+            price: formatPrice(compData.price),
+            sources: compData.count,
+            sourceDetails: compData.sources.map((s) => ({
+              name: s.source,
+              price: formatPrice(s.price),
+              age_ms: s.age,
+            })),
+          };
+        }
+      }
+
+      console.log(
+        JSON.stringify(
+          {
+            ts_ms: clientTsMs,
+            idx: this.config.updaterIndex,
+            assets: fresh.map(({ sym }) => sym),
+            prices: Object.fromEntries(
+              fresh.map(({ sym, candI64 }) => [sym, formatPrice(candI64 / Math.pow(10, DECIMALS))])
+            ),
+            composite: Object.keys(compositeInfo).length > 0 ? compositeInfo : null,
+            tx: sig,
+            t_recv: tRecv,
+            t_sent: tSent,
+            dt_handle: tRecv - t0,
+            dt_send: tSent - tRecv,
+          },
+          null,
+          0
+        )
+      );
+    } else {
+      const now = Date.now();
+      if (now - this.lastLogTime >= LOG_THROTTLE_MS) {
+        const priceStr = fresh
+          .map(({ sym, candI64 }) => `${sym}=$${formatPrice(candI64 / Math.pow(10, DECIMALS))}`)
+          .join(', ');
+        console.log(
+          `${colors.gray}[${new Date().toISOString()}]${colors.reset} ✓ Updated: ${priceStr} ${colors.gray}(tx: ${sig.substring(0, 8)}...)${colors.reset}`
+        );
+        this.lastLogTime = now;
+      }
+    }
+  }
+
+  /**
+   * Log divergence warnings
+   */
+  private logDivergenceWarnings(warnings: DivergenceWarning[]): void {
+    const msg = warnings
+      .map(
+        (w) =>
+          `${w.asset}: Pyth=${w.pythPrice.toFixed(2)} vs Composite=${w.compositePrice.toFixed(2)} (${w.percentage.toFixed(3)}%)`
+      )
+      .join(', ');
+    console.warn(`[WARN] Price divergence > ${DIVERGENCE_WARNING_THRESHOLD}%: ${msg}`);
+  }
+
+  /**
+   * Start the update loop
+   */
+  start(): void {
+    this.updateInterval = setInterval(async () => {
+      try {
+        const fresh = this.getFreshUpdates();
+        if (fresh.length === 0) return;
+
+        const clientTsMs = Date.now();
+
+        if (this.config.isDryRun) {
+          this.handleDryRunUpdate(fresh, clientTsMs);
+        } else {
+          await this.handleLiveUpdate(fresh, clientTsMs);
+        }
+      } catch (error) {
+        console.error('[send/batch]', error instanceof Error ? error.message : String(error));
+      }
+    }, TICK_MS);
+  }
+
+  /**
+   * Stop the oracle service
+   */
+  async stop(): Promise<void> {
+    if (this.updateInterval) {
+      clearInterval(this.updateInterval);
+      this.updateInterval = null;
+    }
+
+    await this.pythClient.close();
+    this.compositeClient.stopAll();
+
+    this.emit('stopped');
+  }
+}

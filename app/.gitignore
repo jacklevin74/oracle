@@ -1,0 +1,32 @@
+# TypeScript build output
+dist/
+*.js.map
+*.d.ts.map
+
+# Logs
+*.log
+oracle.log
+.oracle.lock
+
+# Node modules
+node_modules/
+
+# Environment variables
+.env
+.env.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Private keys
+*.json
+!package.json
+!tsconfig.json
+!.eslintrc.json
