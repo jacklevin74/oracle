@@ -15,6 +15,7 @@ pub enum Asset {
     Eth = 2,
     Sol = 3,
     Hype = 4,
+    Zec = 5,
 }
 
 #[program]
@@ -30,6 +31,7 @@ pub mod oracle {
         s.eth = Triplet::default();
         s.sol = Triplet::default();
         s.hype = Triplet::default();
+        s.zec = Triplet::default();
         Ok(())
     }
 
@@ -57,6 +59,7 @@ pub mod oracle {
             x if x == Asset::Eth as u8 => &mut s.eth,
             x if x == Asset::Sol as u8 => &mut s.sol,
             x if x == Asset::Hype as u8 => &mut s.hype,
+            x if x == Asset::Zec as u8 => &mut s.zec,
             _ => return err!(OracleError::BadAsset),
         };
 
@@ -87,6 +90,7 @@ pub mod oracle {
         eth_price: i64,
         sol_price: i64,
         hype_price: i64,
+        zec_price: i64,
         client_ts_ms: i64,
     ) -> Result<()> {
         let signer = ctx.accounts.signer.key();
@@ -103,7 +107,7 @@ pub mod oracle {
         let s = &mut ctx.accounts.state;
         let slot = Clock::get()?.slot;
 
-        // Update all 4 assets in one instruction
+        // Update all 5 assets in one instruction
         match index {
             1 => {
                 s.btc.param1 = btc_price;
@@ -114,6 +118,8 @@ pub mod oracle {
                 s.sol.ts1 = client_ts_ms;
                 s.hype.param1 = hype_price;
                 s.hype.ts1 = client_ts_ms;
+                s.zec.param1 = zec_price;
+                s.zec.ts1 = client_ts_ms;
             }
             2 => {
                 s.btc.param2 = btc_price;
@@ -124,6 +130,8 @@ pub mod oracle {
                 s.sol.ts2 = client_ts_ms;
                 s.hype.param2 = hype_price;
                 s.hype.ts2 = client_ts_ms;
+                s.zec.param2 = zec_price;
+                s.zec.ts2 = client_ts_ms;
             }
             3 => {
                 s.btc.param3 = btc_price;
@@ -134,6 +142,8 @@ pub mod oracle {
                 s.sol.ts3 = client_ts_ms;
                 s.hype.param3 = hype_price;
                 s.hype.ts3 = client_ts_ms;
+                s.zec.param3 = zec_price;
+                s.zec.ts3 = client_ts_ms;
             }
             4 => {
                 s.btc.param4 = btc_price;
@@ -144,6 +154,8 @@ pub mod oracle {
                 s.sol.ts4 = client_ts_ms;
                 s.hype.param4 = hype_price;
                 s.hype.ts4 = client_ts_ms;
+                s.zec.param4 = zec_price;
+                s.zec.ts4 = client_ts_ms;
             }
             _ => unreachable!(),
         }
@@ -181,6 +193,14 @@ pub mod oracle {
             client_ts_ms,
             slot,
         });
+        emit!(PriceUpdated {
+            asset: Asset::Zec as u8,
+            index,
+            price: zec_price,
+            decimals: s.decimals,
+            client_ts_ms,
+            slot,
+        });
 
         Ok(())
     }
@@ -191,11 +211,19 @@ pub mod oracle {
         s.update_authority = new_auth;
         Ok(())
     }
+
+    pub fn close_state(ctx: Context<CloseState>) -> Result<()> {
+        // Manually transfer lamports and zero out data
+        let state_lamports = ctx.accounts.state.lamports();
+        **ctx.accounts.state.lamports.borrow_mut() = 0;
+        **ctx.accounts.recipient.lamports.borrow_mut() += state_lamports;
+        Ok(())
+    }
 }
 
 #[event]
 pub struct PriceUpdated {
-    pub asset: u8,        // 1=BTC, 2=ETH, 3=SOL, 4=HYPE
+    pub asset: u8,        // 1=BTC, 2=ETH, 3=SOL, 4=HYPE, 5=ZEC
     pub index: u8,        // 1,2,3,4
     pub price: i64,
     pub decimals: u8,     // 6
@@ -210,11 +238,12 @@ pub struct State {
     pub eth: Triplet,             // 64
     pub sol: Triplet,             // 64
     pub hype: Triplet,            // 64
+    pub zec: Triplet,             // 64
     pub decimals: u8,             // 1
     pub bump: u8,                 // 1
 }
 impl State {
-    pub const SIZE: usize = 32 + (Triplet::SIZE * 4) + 1 + 1; // 32 + 256 + 2 = 290
+    pub const SIZE: usize = 32 + (Triplet::SIZE * 5) + 1 + 1; // 32 + 320 + 2 = 354
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, Default)]
@@ -261,11 +290,27 @@ pub struct SetUpdateAuthority<'info> {
     pub signer: Signer<'info>,
 }
 
+#[derive(Accounts)]
+pub struct CloseState<'info> {
+    /// CHECK: We use AccountInfo instead of Account to avoid deserialization
+    /// This allows closing accounts with old structure
+    #[account(
+        mut,
+        seeds = [b"state_v2"],
+        bump
+    )]
+    pub state: UncheckedAccount<'info>,
+    pub authority: Signer<'info>,
+    /// CHECK: Receives the lamports from the closed account
+    #[account(mut)]
+    pub recipient: SystemAccount<'info>,
+}
+
 #[error_code]
 pub enum OracleError {
     #[msg("Unauthorized (admin)")]
     Unauthorized,
-    #[msg("Bad asset (must be 1=BTC,2=ETH,3=SOL,4=HYPE)")]
+    #[msg("Bad asset (must be 1=BTC,2=ETH,3=SOL,4=HYPE,5=ZEC)")]
     BadAsset,
     #[msg("Index must be 1, 2, 3, or 4")]
     BadIndex,

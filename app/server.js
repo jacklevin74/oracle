@@ -30,10 +30,11 @@ const OFF = {
   eth: 32 + TRIP.SIZE,
   sol: 32 + TRIP.SIZE * 2,
   hype: 32 + TRIP.SIZE * 3,
-  decimals: 32 + TRIP.SIZE * 4,
-  bump: 32 + TRIP.SIZE * 4 + 1,
+  zec: 32 + TRIP.SIZE * 4,
+  decimals: 32 + TRIP.SIZE * 5,
+  bump: 32 + TRIP.SIZE * 5 + 1,
 };
-const PAYLOAD_MIN = 32 + TRIP.SIZE * 4 + 2;
+const PAYLOAD_MIN = 32 + TRIP.SIZE * 5 + 2;
 
 function readI64LE(b, o) {
   const buf = Buffer.isBuffer(b) ? b : Buffer.from(b);
@@ -94,6 +95,7 @@ async function readOracleState() {
   const eth = decodeTrip(payload, OFF.eth);
   const sol = decodeTrip(payload, OFF.sol);
   const hype = decodeTrip(payload, OFF.hype);
+  const zec = decodeTrip(payload, OFF.zec);
 
   const now = Date.now();
   const validMs = (x) => Number.isFinite(Number(x)) && Number(x) > 1e11 && Number(x) < 8.64e15;
@@ -111,7 +113,7 @@ async function readOracleState() {
     { price: toHuman2(t.p4, decimals), ts: safeIso(t.t4), age: ageOf(t.t4) },
   ]);
 
-  const groups = { BTC: mkRows(btc), ETH: mkRows(eth), SOL: mkRows(sol), HYPE: mkRows(hype) };
+  const groups = { BTC: mkRows(btc), ETH: mkRows(eth), SOL: mkRows(sol), HYPE: mkRows(hype), ZEC: mkRows(zec) };
 
   // Aggregates from current rows (ignore nulls, exclude stale and outliers)
   const agg = {};
@@ -119,7 +121,7 @@ async function readOracleState() {
   const STALE_THRESHOLD_MS = 15000; // 15 seconds
   const OUTLIER_THRESHOLD = 0.10; // 10%
 
-  for (const sym of ["BTC", "ETH", "SOL", "HYPE"]) {
+  for (const sym of ["BTC", "ETH", "SOL", "HYPE", "ZEC"]) {
     const rows = groups[sym];
 
     // Filter out zero/null prices and stale data (older than 15s)
@@ -252,6 +254,11 @@ const HTML = /* html */ `
         <div class="price" id="agg-hype">–</div>
         <div class="sub" id="sub-hype"></div>
       </div>
+      <div class="card">
+        <div class="title">ZEC · aggregated average</div>
+        <div class="price" id="agg-zec">–</div>
+        <div class="sub" id="sub-zec"></div>
+      </div>
     </div>
 
     <!-- Collapser -->
@@ -344,10 +351,12 @@ const HTML = /* html */ `
         const oE = document.getElementById('agg-eth');
         const oS = document.getElementById('agg-sol');
         const oH = document.getElementById('agg-hype');
+        const oZ = document.getElementById('agg-zec');
         const sB = document.getElementById('sub-btc');
         const sE = document.getElementById('sub-eth');
         const sS = document.getElementById('sub-sol');
         const sH = document.getElementById('sub-hype');
+        const sZ = document.getElementById('sub-zec');
 
         if(!d.exists){
           meta.textContent = d.message || "state not initialized";
@@ -359,21 +368,24 @@ const HTML = /* html */ `
         meta.textContent = \`slot \${d.ctxSlot} · pda \${d.pda} · dec \${d.decimals}\`;
 
         // TOP aggregates
-        const B = d.agg?.BTC, E = d.agg?.ETH, S = d.agg?.SOL, H = d.agg?.HYPE;
+        const B = d.agg?.BTC, E = d.agg?.ETH, S = d.agg?.SOL, H = d.agg?.HYPE, Z = d.agg?.ZEC;
         oB.textContent = fmt2(B?.avg ?? null);
         oE.textContent = fmt2(E?.avg ?? null);
         oS.textContent = fmt2(S?.avg ?? null);
         oH.textContent = fmt2(H?.avg ?? null);
+        oZ.textContent = fmt2(Z?.avg ?? null);
 
         const tB = d.latestTs?.BTC ?? null;
         const tE = d.latestTs?.ETH ?? null;
         const tS = d.latestTs?.SOL ?? null;
         const tH = d.latestTs?.HYPE ?? null;
+        const tZ = d.latestTs?.ZEC ?? null;
 
         const lcB = tB ? fmtLocalClock(tB) : null;
         const lcE = tE ? fmtLocalClock(tE) : null;
         const lcS = tS ? fmtLocalClock(tS) : null;
         const lcH = tH ? fmtLocalClock(tH) : null;
+        const lcZ = tZ ? fmtLocalClock(tZ) : null;
 
         sB.textContent = (B && B.count)
           ? \`\${fmtMs(B.ageAvg)} · \${lcB ?? "–"}\`
@@ -387,11 +399,14 @@ const HTML = /* html */ `
         sH.textContent = (H && H.count)
           ? \`\${fmtMs(H.ageAvg)} · \${lcH ?? "–"}\`
           : "–";
+        sZ.textContent = (Z && Z.count)
+          ? \`\${fmtMs(Z.ageAvg)} · \${lcZ ?? "–"}\`
+          : "–";
 
-        stack.style.display = (B?.count || E?.count || S?.count || H?.count) ? "block" : "none";
+        stack.style.display = (B?.count || E?.count || S?.count || H?.count || Z?.count) ? "block" : "none";
 
         // Per-signer tables with LOCAL time column
-        groups.innerHTML = row("BTC", d.groups.BTC) + row("ETH", d.groups.ETH) + row("SOL", d.groups.SOL) + row("HYPE", d.groups.HYPE);
+        groups.innerHTML = row("BTC", d.groups.BTC) + row("ETH", d.groups.ETH) + row("SOL", d.groups.SOL) + row("HYPE", d.groups.HYPE) + row("ZEC", d.groups.ZEC);
       }catch(e){
         document.getElementById('meta').textContent = "error: " + (e.message || e);
         document.getElementById('stack').style.display = "none";

@@ -152,9 +152,9 @@ export class OracleService extends EventEmitter {
 
     this.logger.logToConsole('Starting price streams...\n');
 
-    // Start Pyth feeds (BTC, ETH, SOL - no HYPE on Pyth)
+    // Start Pyth feeds (BTC, ETH, SOL, ZEC - no HYPE on Pyth)
     await this.pythClient.subscribe();
-    this.logger.logToConsole(colors.green + '✓ Connected to Pyth Network (BTC, ETH, SOL)' + colors.reset);
+    this.logger.logToConsole(colors.green + '✓ Connected to Pyth Network (BTC, ETH, SOL, ZEC)' + colors.reset);
 
     // Start composite oracles for all assets
     for (const symbol of Object.keys(COMPOSITE_CONFIGS) as AssetSymbol[]) {
@@ -164,7 +164,7 @@ export class OracleService extends EventEmitter {
       colors.green + '✓ Connected to Composite Oracle exchanges:' + colors.reset +
       colors.gray + '\n   Kraken, Coinbase, KuCoin, Binance, MEXC, Bybit, Hyperliquid' + colors.reset
     );
-    this.logger.logToConsole(colors.gray + '   Aggregating: BTC, ETH, SOL, HYPE' + colors.reset);
+    this.logger.logToConsole(colors.gray + '   Aggregating: BTC, ETH, SOL, HYPE, ZEC' + colors.reset);
     this.logger.logToConsole('');
   }
 
@@ -205,20 +205,27 @@ export class OracleService extends EventEmitter {
    */
   private getFreshUpdates(): PriceUpdateItem[] {
     const fresh: PriceUpdateItem[] = [];
-    const symbols: AssetSymbol[] = ['BTC', 'ETH', 'SOL', 'HYPE'];
+    const symbols: AssetSymbol[] = ['BTC', 'ETH', 'SOL', 'HYPE', 'ZEC'];
 
     for (const sym of symbols) {
       let priceToUse: number;
       let pubMsToUse: number;
       let priceSource: 'pyth' | 'composite';
 
-      // HYPE uses composite oracle only (no Pyth feed)
+      // HYPE and ZEC use composite oracle only (no Pyth feed for HYPE, ZEC has both)
       if (sym === 'HYPE') {
         const compData = this.compositeData[sym];
         if (compData.price == null) continue;
         priceToUse = compData.price;
         pubMsToUse = Date.now();
         priceSource = 'composite';
+      } else if (sym === 'ZEC') {
+        // ZEC uses Pyth feed
+        const latestPrice = this.latest[sym];
+        if (!latestPrice) continue;
+        priceToUse = latestPrice.price;
+        pubMsToUse = latestPrice.pubMs;
+        priceSource = 'pyth';
       } else {
         // BTC, ETH, SOL use Pyth
         const latestPrice = this.latest[sym];
@@ -313,20 +320,21 @@ export class OracleService extends EventEmitter {
     console.log('\n' + colors.yellow + '🔗 COMPOSITE ORACLE (o3.js):' + colors.reset);
     console.log('');
 
-    const symbols: AssetSymbol[] = ['BTC', 'ETH', 'SOL', 'HYPE'];
+    const symbols: AssetSymbol[] = ['BTC', 'ETH', 'SOL', 'HYPE', 'ZEC'];
     for (const sym of symbols) {
       const compData = this.compositeData[sym];
 
-      // Skip if no price data available (but always show HYPE if it has sources)
-      if (!compData.price && !(sym === 'HYPE' && compData.count > 0)) continue;
+      // Skip if no price data available (but always show HYPE/ZEC if they have sources)
+      if (!compData.price && !(sym === 'HYPE' && compData.count > 0) && !(sym === 'ZEC' && compData.count > 0)) continue;
 
       const price = compData.price;
       const sources = compData.sources || [];
       const activeCount = sources.length;
-      const totalCount = sym === 'HYPE' ? 7 : 6;
+      // HYPE: 7 sources, ZEC: 5 sources (no Kraken/Bybit), Others: 6 sources
+      const totalCount = sym === 'HYPE' ? 7 : sym === 'ZEC' ? 5 : 6;
 
-      // Color for HYPE token
-      const symbolColor = sym === 'HYPE' ? colors.magenta : colors.green;
+      // Color for HYPE and ZEC tokens
+      const symbolColor = sym === 'HYPE' ? colors.magenta : sym === 'ZEC' ? colors.yellow : colors.green;
 
       if (price !== null) {
         console.log(`   • ${symbolColor}${sym}/USD${colors.reset}: ${colors.green}$${formatPrice(price)}${colors.reset}`);
@@ -347,7 +355,7 @@ export class OracleService extends EventEmitter {
 
       // Show price comparison only if we have a price
       if (price !== null) {
-        // Show price comparison with Pyth (except for HYPE)
+        // Show price comparison with Pyth (except for HYPE which is composite-only)
         if (sym !== 'HYPE') {
           const pythPrice = this.latest[sym];
           if (pythPrice) {
@@ -368,7 +376,7 @@ export class OracleService extends EventEmitter {
             }
           }
         } else {
-          // For HYPE, just show it's from composite only
+          // For HYPE, just show it's from composite only (no Pyth feed)
           console.log('');
           console.log(colors.gray + '     📈 Price Comparison:' + colors.reset);
           console.log(colors.gray + `       Pyth HYPE:      ${colors.yellow}$${formatPrice(price)}${colors.reset}`);
@@ -478,7 +486,7 @@ export class OracleService extends EventEmitter {
   ): void {
     if (this.logger.isVerbose()) {
       const compositeInfo: Record<string, unknown> = {};
-      for (const sym of ['BTC', 'ETH', 'SOL', 'HYPE'] as AssetSymbol[]) {
+      for (const sym of ['BTC', 'ETH', 'SOL', 'HYPE', 'ZEC'] as AssetSymbol[]) {
         const compData = this.compositeData[sym];
         if (compData.price != null && compData.sources) {
           compositeInfo[sym] = {
@@ -557,16 +565,17 @@ export class OracleService extends EventEmitter {
         ? `${(uptime / 60).toFixed(1)}m`
         : `${uptime.toFixed(0)}s`;
 
-    this.logger.logToConsole(
-      colors.gray +
+    const heartbeatMsg =
       `[HEARTBEAT] ${new Date(now).toISOString()} | ` +
       `PID: ${process.pid} | ` +
       `Uptime: ${uptimeStr} | ` +
       `Updates: ${this.updateCount} | ` +
       `Errors: ${this.errorCount} | ` +
-      `Mem: ${heapUsedMB}/${heapTotalMB} MB (RSS: ${rssMB} MB)` +
-      colors.reset
-    );
+      `Mem: ${heapUsedMB}/${heapTotalMB} MB (RSS: ${rssMB} MB)`;
+
+    // Log to both console and file
+    this.logger.logToConsole(colors.gray + heartbeatMsg + colors.reset);
+    console.log(heartbeatMsg); // Also goes to file if file logging is enabled
   }
 
   /**

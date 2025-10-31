@@ -68,6 +68,7 @@ export class CompositeOracle extends EventEmitter {
   private publishMs: number;
   private staleMs: number;
   private silent: boolean;
+  private options: CompositeOracleOptions;
 
   // Symbol configuration
   private pairKraken: string;
@@ -105,6 +106,7 @@ export class CompositeOracle extends EventEmitter {
   constructor(options: CompositeOracleOptions = {}) {
     super();
 
+    this.options = options;
     this.publishMs = options.publishMs || PUBLISH_MS;
     this.staleMs = options.staleMs || STALE_MS;
     this.silent = options.silent || false;
@@ -712,9 +714,12 @@ export class CompositeOracle extends EventEmitter {
 
   /** Start all oracle feeds and begin publishing */
   start(): void {
-    if (ENABLE_KRAKEN) {
+    // Only start Kraken if symbol was provided in config (not using fallback)
+    if (ENABLE_KRAKEN && this.options.pairKraken) {
       this.log(this.nowISO(), '🚀 Starting Kraken feed...');
       this.krakenConnect();
+    } else if (!this.options.pairKraken) {
+      this.log(this.nowISO(), '⏸️  Kraken feed disabled (no symbol configured)');
     } else {
       this.log(this.nowISO(), '⏸️  Kraken feed disabled');
     }
@@ -747,9 +752,12 @@ export class CompositeOracle extends EventEmitter {
       this.log(this.nowISO(), '⏸️  MEXC feed disabled');
     }
 
-    if (ENABLE_BYBIT) {
+    // Only start Bybit if symbol was provided in config (not using fallback)
+    if (ENABLE_BYBIT && this.options.symbolBybit) {
       this.log(this.nowISO(), '🚀 Starting Bybit feed...');
       this.bybitConnect();
+    } else if (!this.options.symbolBybit) {
+      this.log(this.nowISO(), '⏸️  Bybit feed disabled (no symbol configured)');
     } else {
       this.log(this.nowISO(), '⏸️  Bybit feed disabled');
     }
