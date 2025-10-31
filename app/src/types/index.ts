@@ -58,25 +58,39 @@ export interface LastSentI64 {
 }
 
 /**
- * Composite oracle data
+ * Composite oracle data (from o3.cjs)
  */
 export interface CompositeData {
+  composite: number | null;
+  count: number;
+  sources?: Array<{
+    source: string;
+    price: number;
+    age: number;
+  }>;
+}
+
+/**
+ * Internal composite tracking (normalized)
+ */
+export interface CompositeTracking {
   price: number | null;
   count: number;
-  sources?: Record<string, {
+  sources?: Array<{
+    source: string;
     price: number;
-    ts: number;
+    age: number;
   }>;
 }
 
 /**
  * Composite oracle tracking for all assets
  */
-export interface CompositeTracking {
-  BTC: CompositeData;
-  ETH: CompositeData;
-  SOL: CompositeData;
-  HYPE: CompositeData;
+export interface CompositeTrackingMap {
+  BTC: CompositeTracking;
+  ETH: CompositeTracking;
+  SOL: CompositeTracking;
+  HYPE: CompositeTracking;
 }
 
 /**

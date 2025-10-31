@@ -4,9 +4,7 @@
 
 import { EventEmitter } from 'events';
 import { AssetSymbol, CompositeData } from '../types';
-
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const CompositeOracle = require('../../o3.cjs');
+import { CompositeOracle } from './composite-oracle';
 
 /**
  * Configuration for composite oracle
@@ -25,7 +23,7 @@ export interface CompositeOracleConfig {
  * Composite oracle client for aggregated price feeds
  */
 export class CompositeClient extends EventEmitter {
-  private oracles: Map<AssetSymbol, typeof CompositeOracle>;
+  private oracles: Map<AssetSymbol, CompositeOracle>;
 
   constructor() {
     super();

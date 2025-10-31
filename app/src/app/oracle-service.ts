@@ -9,7 +9,7 @@ import {
   LatestPrices,
   SentPriceTracking,
   LastSentI64,
-  CompositeTracking,
+  CompositeTrackingMap,
   PriceUpdateItem,
   CompositeData,
   PriceData,
@@ -55,7 +55,7 @@ export class OracleService extends EventEmitter {
   private latest: LatestPrices;
   private sentUpTo: SentPriceTracking;
   private lastSentI64: LastSentI64;
-  private compositeData: CompositeTracking;
+  private compositeData: CompositeTrackingMap;
 
   // Update loop
   private updateInterval: NodeJS.Timeout | null = null;
@@ -89,10 +89,10 @@ export class OracleService extends EventEmitter {
     };
 
     this.compositeData = {
-      BTC: { price: null, count: 0, sources: {} },
-      ETH: { price: null, count: 0, sources: {} },
-      SOL: { price: null, count: 0, sources: {} },
-      HYPE: { price: null, count: 0, sources: {} },
+      BTC: { price: null, count: 0, sources: [] },
+      ETH: { price: null, count: 0, sources: [] },
+      SOL: { price: null, count: 0, sources: [] },
+      HYPE: { price: null, count: 0, sources: [] },
     };
 
     // Initialize clients
@@ -118,7 +118,12 @@ export class OracleService extends EventEmitter {
    */
   private setupCompositeHandlers(): void {
     this.compositeClient.on('price', (symbol: AssetSymbol, data: CompositeData) => {
-      this.compositeData[symbol] = data;
+      // Store composite data directly - TypeScript oracle returns correct format
+      this.compositeData[symbol] = {
+        price: data.composite,
+        count: data.count,
+        sources: data.sources || [],
+      };
     });
   }
 
@@ -302,53 +307,66 @@ export class OracleService extends EventEmitter {
     const symbols: AssetSymbol[] = ['BTC', 'ETH', 'SOL', 'HYPE'];
     for (const sym of symbols) {
       const compData = this.compositeData[sym];
-      if (!compData.price) continue;
+
+      // Skip if no price data available (but always show HYPE if it has sources)
+      if (!compData.price && !(sym === 'HYPE' && compData.count > 0)) continue;
 
       const price = compData.price;
-      const sources = compData.sources || {};
-      const sourceKeys = Object.keys(sources);
-      const activeCount = sourceKeys.length;
+      const sources = compData.sources || [];
+      const activeCount = sources.length;
       const totalCount = sym === 'HYPE' ? 7 : 6;
 
-      console.log(`   • ${colors.green}${sym}/USD${colors.reset}: $${formatPrice(price)}`);
-      console.log(colors.gray + `     Active sources: ${activeCount}/${totalCount}` + colors.reset);
+      // Color for HYPE token
+      const symbolColor = sym === 'HYPE' ? colors.magenta : colors.green;
+
+      if (price !== null) {
+        console.log(`   • ${symbolColor}${sym}/USD${colors.reset}: ${colors.green}$${formatPrice(price)}${colors.reset}`);
+        console.log(colors.gray + `     Active sources: ${activeCount}/${totalCount}` + colors.reset);
+      } else {
+        // Show waiting for data if price is null but we have sources
+        console.log(`   • ${symbolColor}${sym}/USD${colors.reset}: ${colors.yellow}Waiting for data...${colors.reset}`);
+        console.log(colors.gray + `     Active sources: ${activeCount}/${totalCount}` + colors.reset);
+      }
 
       if (activeCount > 0) {
         console.log(colors.gray + '     Individual sources:' + colors.reset);
-        for (const [exchange, data] of Object.entries(sources)) {
-          const age = ((Date.now() - data.ts) / 1000).toFixed(1);
-          console.log(colors.gray + `       • ${exchange.padEnd(12)}: $${formatPrice(data.price)} (age: ${age}s)` + colors.reset);
+        for (const sourceData of sources) {
+          const age = (sourceData.age / 1000).toFixed(1);
+          console.log(colors.gray + `       • ${colors.cyan}${sourceData.source.padEnd(12)}${colors.reset}: ${colors.green}$${formatPrice(sourceData.price)}${colors.reset} ${colors.gray}(age: ${age}s)${colors.reset}`);
         }
       }
 
-      // Show price comparison with Pyth (except for HYPE)
-      if (sym !== 'HYPE') {
-        const pythPrice = this.latest[sym];
-        if (pythPrice) {
-          const pythVal = pythPrice.price;
-          const diff = Math.abs(pythVal - price);
-          const pct = (diff / pythVal) * 100;
+      // Show price comparison only if we have a price
+      if (price !== null) {
+        // Show price comparison with Pyth (except for HYPE)
+        if (sym !== 'HYPE') {
+          const pythPrice = this.latest[sym];
+          if (pythPrice) {
+            const pythVal = pythPrice.price;
+            const diff = Math.abs(pythVal - price);
+            const pct = (diff / pythVal) * 100;
 
+            console.log('');
+            console.log(colors.gray + '     📈 Price Comparison:' + colors.reset);
+            console.log(colors.gray + `       Pyth ${sym}:      ${colors.yellow}$${formatPrice(pythVal)}${colors.reset}`);
+            console.log(colors.gray + `       Composite ${sym}: ${colors.cyan}$${formatPrice(price)}${colors.reset}`);
+            console.log(colors.gray + `       Difference:    ${colors.yellow}$${diff.toFixed(2)} (${pct.toFixed(3)}%)${colors.reset}`);
+
+            if (pct > DIVERGENCE_WARNING_THRESHOLD) {
+              console.log(colors.red + `       ⚠️  Exceeds threshold (${DIVERGENCE_WARNING_THRESHOLD}%)` + colors.reset);
+            } else {
+              console.log(colors.green + '       ✅ Within acceptable range' + colors.reset);
+            }
+          }
+        } else {
+          // For HYPE, just show it's from composite only
           console.log('');
           console.log(colors.gray + '     📈 Price Comparison:' + colors.reset);
-          console.log(colors.gray + `       Pyth ${sym}:      $${formatPrice(pythVal)}` + colors.reset);
-          console.log(colors.gray + `       Composite ${sym}: $${formatPrice(price)}` + colors.reset);
-          console.log(colors.gray + `       Difference:    $${diff.toFixed(2)} (${pct.toFixed(3)}%)` + colors.reset);
-
-          if (pct > DIVERGENCE_WARNING_THRESHOLD) {
-            console.log(colors.red + `       ⚠️  Exceeds threshold (${DIVERGENCE_WARNING_THRESHOLD}%)` + colors.reset);
-          } else {
-            console.log(colors.green + '       ✅ Within acceptable range' + colors.reset);
-          }
+          console.log(colors.gray + `       Pyth HYPE:      ${colors.yellow}$${formatPrice(price)}${colors.reset}`);
+          console.log(colors.gray + `       Composite HYPE: ${colors.cyan}$${formatPrice(price)}${colors.reset}`);
+          console.log(colors.gray + `       Difference:    ${colors.yellow}$0.00 (0.000%)${colors.reset}`);
+          console.log(colors.green + '       ✅ Within acceptable range' + colors.reset);
         }
-      } else {
-        // For HYPE, just show it's from composite only
-        console.log('');
-        console.log(colors.gray + '     📈 Price Comparison:' + colors.reset);
-        console.log(colors.gray + `       Pyth HYPE:      $${formatPrice(price)}` + colors.reset);
-        console.log(colors.gray + `       Composite HYPE: $${formatPrice(price)}` + colors.reset);
-        console.log(colors.gray + '       Difference:    $0.00 (0.000%)' + colors.reset);
-        console.log(colors.green + '       ✅ Within acceptable range' + colors.reset);
       }
 
       console.log('');
@@ -454,10 +472,10 @@ export class OracleService extends EventEmitter {
           compositeInfo[sym] = {
             price: formatPrice(compData.price),
             sources: compData.count,
-            sourceDetails: Object.entries(compData.sources).map(([name, data]) => ({
-              name,
+            sourceDetails: compData.sources.map((data) => ({
+              name: data.source,
               price: formatPrice(data.price),
-              age_ms: Date.now() - data.ts,
+              age_ms: data.age,
             })),
           };
         }

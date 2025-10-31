@@ -34,8 +34,8 @@ function encodeU8(n: number): Buffer {
  */
 function encodeI64(n: number): Buffer {
   let x = BigInt(n);
-  if (x < 0n) {
-    x = (1n << 64n) + x;
+  if (x < BigInt(0)) {
+    x = (BigInt(1) << BigInt(64)) + x;
   }
   const b = Buffer.alloc(8);
   b.writeBigUInt64LE(x);
