@@ -12,12 +12,13 @@ export enum Asset {
   ETH = 2,
   SOL = 3,
   HYPE = 4,
+  ZEC = 5,
 }
 
 /**
  * Asset symbol names
  */
-export type AssetSymbol = 'BTC' | 'ETH' | 'SOL' | 'HYPE';
+export type AssetSymbol = 'BTC' | 'ETH' | 'SOL' | 'HYPE' | 'ZEC';
 
 /**
  * Price data with timestamp
@@ -35,6 +36,7 @@ export interface LatestPrices {
   ETH: PriceData | null;
   SOL: PriceData | null;
   HYPE: PriceData | null;
+  ZEC: PriceData | null;
 }
 
 /**
@@ -45,6 +47,7 @@ export interface SentPriceTracking {
   ETH: number;
   SOL: number;
   HYPE: number;
+  ZEC: number;
 }
 
 /**
@@ -55,6 +58,7 @@ export interface LastSentI64 {
   ETH: number | null;
   SOL: number | null;
   HYPE: number | null;
+  ZEC: number | null;
 }
 
 /**
@@ -91,6 +95,7 @@ export interface CompositeTrackingMap {
   ETH: CompositeTracking;
   SOL: CompositeTracking;
   HYPE: CompositeTracking;
+  ZEC: CompositeTracking;
 }
 
 /**
@@ -174,6 +179,7 @@ export interface PythFeeds {
   BTC: string;
   ETH: string;
   SOL: string;
+  ZEC: string;
 }
 
 /**

@@ -61,6 +61,11 @@ export class OracleService extends EventEmitter {
   private updateInterval: NodeJS.Timeout | null = null;
   private lastLogTime: number = 0;
 
+  // Heartbeat monitoring
+  private heartbeatInterval: NodeJS.Timeout | null = null;
+  private updateCount: number = 0;
+  private errorCount: number = 0;
+
   constructor(config: OracleServiceConfig) {
     super();
     this.config = config;
@@ -72,6 +77,7 @@ export class OracleService extends EventEmitter {
       ETH: null,
       SOL: null,
       HYPE: null,
+      ZEC: null,
     };
 
     this.sentUpTo = {
@@ -79,6 +85,7 @@ export class OracleService extends EventEmitter {
       ETH: 0,
       SOL: 0,
       HYPE: 0,
+      ZEC: 0,
     };
 
     this.lastSentI64 = {
@@ -86,6 +93,7 @@ export class OracleService extends EventEmitter {
       ETH: null,
       SOL: null,
       HYPE: null,
+      ZEC: null,
     };
 
     this.compositeData = {
@@ -93,6 +101,7 @@ export class OracleService extends EventEmitter {
       ETH: { price: null, count: 0, sources: [] },
       SOL: { price: null, count: 0, sources: [] },
       HYPE: { price: null, count: 0, sources: [] },
+      ZEC: { price: null, count: 0, sources: [] },
     };
 
     // Initialize clients
@@ -404,16 +413,18 @@ export class OracleService extends EventEmitter {
 
     const t0 = Date.now();
 
-    // Collect prices for all 4 assets
+    // Collect prices for all 5 assets
     const btcData = fresh.find((f) => f.sym === 'BTC');
     const ethData = fresh.find((f) => f.sym === 'ETH');
     const solData = fresh.find((f) => f.sym === 'SOL');
     const hypeData = fresh.find((f) => f.sym === 'HYPE');
+    const zecData = fresh.find((f) => f.sym === 'ZEC');
 
     const btcPrice = btcData ? btcData.candI64 : this.lastSentI64.BTC || 0;
     const ethPrice = ethData ? ethData.candI64 : this.lastSentI64.ETH || 0;
     const solPrice = solData ? solData.candI64 : this.lastSentI64.SOL || 0;
     const hypePrice = hypeData ? hypeData.candI64 : this.lastSentI64.HYPE || 0;
+    const zecPrice = zecData ? zecData.candI64 : this.lastSentI64.ZEC || 0;
 
     const tRecv = Date.now();
 
@@ -425,6 +436,7 @@ export class OracleService extends EventEmitter {
         ethPrice,
         solPrice,
         hypePrice,
+        zecPrice,
         clientTsMs
       );
 
@@ -529,6 +541,35 @@ export class OracleService extends EventEmitter {
   }
 
   /**
+   * Log heartbeat to confirm process is alive
+   */
+  private logHeartbeat(): void {
+    const now = Date.now();
+    const uptime = process.uptime();
+    const memUsage = process.memoryUsage();
+    const heapUsedMB = (memUsage.heapUsed / 1024 / 1024).toFixed(2);
+    const heapTotalMB = (memUsage.heapTotal / 1024 / 1024).toFixed(2);
+    const rssMB = (memUsage.rss / 1024 / 1024).toFixed(2);
+
+    const uptimeStr = uptime > 3600
+      ? `${(uptime / 3600).toFixed(1)}h`
+      : uptime > 60
+        ? `${(uptime / 60).toFixed(1)}m`
+        : `${uptime.toFixed(0)}s`;
+
+    this.logger.logToConsole(
+      colors.gray +
+      `[HEARTBEAT] ${new Date(now).toISOString()} | ` +
+      `PID: ${process.pid} | ` +
+      `Uptime: ${uptimeStr} | ` +
+      `Updates: ${this.updateCount} | ` +
+      `Errors: ${this.errorCount} | ` +
+      `Mem: ${heapUsedMB}/${heapTotalMB} MB (RSS: ${rssMB} MB)` +
+      colors.reset
+    );
+  }
+
+  /**
    * Start the update loop
    */
   start(): void {
@@ -544,10 +585,22 @@ export class OracleService extends EventEmitter {
         } else {
           await this.handleLiveUpdate(fresh, clientTsMs);
         }
+
+        // Increment update count on success
+        this.updateCount++;
       } catch (error) {
         console.error('[send/batch]', error instanceof Error ? error.message : String(error));
+        this.errorCount++;
       }
     }, TICK_MS);
+
+    // Start heartbeat monitor (every 60 seconds)
+    this.heartbeatInterval = setInterval(() => {
+      this.logHeartbeat();
+    }, 60000); // 60 seconds
+
+    // Log initial heartbeat
+    this.logHeartbeat();
   }
 
   /**
@@ -557,6 +610,11 @@ export class OracleService extends EventEmitter {
     if (this.updateInterval) {
       clearInterval(this.updateInterval);
       this.updateInterval = null;
+    }
+
+    if (this.heartbeatInterval) {
+      clearInterval(this.heartbeatInterval);
+      this.heartbeatInterval = null;
     }
 
     await this.pythClient.close();

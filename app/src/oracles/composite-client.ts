@@ -124,4 +124,11 @@ export const COMPOSITE_CONFIGS: Record<AssetSymbol, CompositeOracleConfig> = {
     symbolBybit: 'HYPEUSDT',
     coinHyperliquid: 'HYPE',
   },
+  ZEC: {
+    productCB: 'ZEC-USD',
+    symbolKucoin: 'ZEC-USDT',
+    symbolBinance: 'zecusdt',
+    symbolMexc: 'ZECUSDT',
+    coinHyperliquid: 'ZEC',
+  },
 };

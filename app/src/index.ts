@@ -201,13 +201,63 @@ async function main(): Promise<void> {
   process.on('SIGINT', shutdown);
   process.on('SIGTERM', shutdown);
 
+  // Capture uncaught exceptions
+  process.on('uncaughtException', (error: Error) => {
+    logger.errorToConsole('\n❌ UNCAUGHT EXCEPTION - Process will exit');
+    logger.errorToConsole(`Error: ${error.message}`);
+    logger.errorToConsole(`Stack: ${error.stack}`);
+    logger.close();
+    lockManager.remove();
+    process.exit(1);
+  });
+
+  // Capture unhandled promise rejections
+  process.on('unhandledRejection', (reason: unknown, promise: Promise<unknown>) => {
+    logger.errorToConsole('\n❌ UNHANDLED PROMISE REJECTION - Process will exit');
+    logger.errorToConsole(`Reason: ${reason instanceof Error ? reason.message : String(reason)}`);
+    if (reason instanceof Error && reason.stack) {
+      logger.errorToConsole(`Stack: ${reason.stack}`);
+    }
+    logger.errorToConsole(`Promise: ${promise}`);
+    logger.close();
+    lockManager.remove();
+    process.exit(1);
+  });
+
+  // Monitor for unexpected exit
+  process.on('exit', (code: number) => {
+    if (code !== 0) {
+      // Try to log even if logger is closed (will fail silently if it is)
+      try {
+        console.error(`\n❌ Process exiting with code: ${code}`);
+      } catch {
+        // Ignore
+      }
+    }
+  });
+
+  // Capture warning events
+  process.on('warning', (warning: Error) => {
+    logger.errorToConsole(`\n⚠️  NODE WARNING: ${warning.name}`);
+    logger.errorToConsole(`Message: ${warning.message}`);
+    if (warning.stack) {
+      logger.errorToConsole(`Stack: ${warning.stack}`);
+    }
+  });
+
   // Initialize and start service
   try {
     await service.initialize();
     service.displayDataSources();
     service.start();
+
+    // Log successful startup
+    logger.logToConsole(`✓ Oracle service started successfully (PID: ${process.pid})`);
   } catch (error) {
     logger.errorToConsole('Fatal error:', error instanceof Error ? error.message : String(error));
+    if (error instanceof Error && error.stack) {
+      logger.errorToConsole(`Stack: ${error.stack}`);
+    }
     logger.close();
     lockManager.remove();
     process.exit(1);

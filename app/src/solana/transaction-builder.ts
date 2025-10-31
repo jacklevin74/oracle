@@ -164,6 +164,7 @@ export class TransactionBuilder {
     ethPrice: number,
     solPrice: number,
     hypePrice: number,
+    zecPrice: number,
     clientTsMs: number,
     signer: PublicKey
   ): TransactionInstruction {
@@ -174,6 +175,7 @@ export class TransactionBuilder {
       encodeI64(ethPrice),
       encodeI64(solPrice),
       encodeI64(hypePrice),
+      encodeI64(zecPrice),
       encodeI64(clientTsMs),
     ]);
 
@@ -230,6 +232,7 @@ export class TransactionBuilder {
     ethPrice: number,
     solPrice: number,
     hypePrice: number,
+    zecPrice: number,
     clientTsMs: number
   ): Promise<string> {
     // Ensure fresh blockhash
@@ -244,6 +247,7 @@ export class TransactionBuilder {
           ethPrice,
           solPrice,
           hypePrice,
+          zecPrice,
           clientTsMs,
           payer.publicKey
         )

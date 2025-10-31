@@ -57,6 +57,7 @@ export const ASSETS: Record<string, Asset> = {
   ETH: Asset.ETH,
   SOL: Asset.SOL,
   HYPE: Asset.HYPE,
+  ZEC: Asset.ZEC,
 };
 
 /**
@@ -67,6 +68,7 @@ export const PYTH_FEEDS: PythFeeds = {
   BTC: '0xe62df6c8b4a85fe1a67db44dc12de5db330f7ac66b72dc658afedf0f4a415b43',
   ETH: '0xff61491a931112ddf1bd8147cd1b641375f79f5825126d665480874634fd0ace',
   SOL: '0xef0d8b6fda2ceba41da15d4095d1da392a0d2f8ed0c6c7bc0f4cfac8c280b56d',
+  ZEC: '0xbe9b59d178f0d6a97ab4c343bff2aa69caa1eaae3e9048a65788c529b125bb24',
 };
 
 /**
