@@ -94,9 +94,11 @@ async function main(): Promise<void> {
         }
 
         // Validate the private key before forking
+        let testKeypair: Keypair;
+        let testIndex: number;
         try {
-          const testKeypair = parsePrivateKey(privateKey);
-          validateAuthorizedKeypair(testKeypair);
+          testKeypair = parsePrivateKey(privateKey);
+          testIndex = validateAuthorizedKeypair(testKeypair);
         } catch (error) {
           if (error instanceof AuthenticationError) {
             logger.errorToConsole(`\n❌ ERROR: ${error.message}\n`);
@@ -108,7 +110,15 @@ async function main(): Promise<void> {
 
         // Fork to background if requested
         if (options.shouldDaemonize && !options.isForkedChild) {
-          forkToBackground(privateKey, process.argv.slice(2), options.logFile);
+          const rpcUrl = process.env.ANCHOR_PROVIDER_URL || DEFAULT_RPC_URL;
+          forkToBackground({
+            privateKey,
+            args: process.argv.slice(2),
+            logFile: options.logFile,
+            keypair: testKeypair,
+            index: testIndex,
+            rpcUrl,
+          });
           // forkToBackground never returns (calls process.exit)
         }
       } else if (options.useStdin) {
