@@ -70,17 +70,20 @@ export function forkToBackground(options: ForkOptions): never {
     env: { ...process.env, [FORKED_ENV_VAR]: '1' },
   });
 
-  // Write private key to child's stdin
+  // Write private key to child's stdin and wait for it to be flushed
   if (child.stdin) {
-    child.stdin.write(privateKey + '\n');
-    child.stdin.end();
+    child.stdin.write(privateKey + '\n', () => {
+      // Callback fires when data is flushed
+      child.stdin!.end();
+      // Clear private key from parent (Note: parameter destructuring creates a local copy)
+      // The original privateKey in parent's memory will be cleared by the caller
+      // Unref so parent can exit
+      child.unref();
+    });
+  } else {
+    // If no stdin (shouldn't happen), still unref
+    child.unref();
   }
-
-  // Clear private key from parent (Note: parameter destructuring creates a local copy)
-  // The original privateKey in parent's memory will be cleared by the caller
-
-  // Unref so parent can exit
-  child.unref();
 
   // Print success message and exit parent (using stdout to bypass console.log override)
   process.stdout.write(`\n✓ Oracle client forked to background (PID: ${child.pid})\n`);
