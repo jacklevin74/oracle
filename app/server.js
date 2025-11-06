@@ -4,6 +4,7 @@
 // - TOP: Stacked AGGREGATES (BTC / ETH / SOL) showing average age in ms (single number) + latest local time
 // - BELOW: Collapsible per-signer tables (toggle with triangle), now with LOCAL time column
 // - Fast refresh: 250ms
+//
 
 import express from "express";
 import { Connection, PublicKey } from "@solana/web3.js";
