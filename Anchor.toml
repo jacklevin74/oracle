@@ -7,7 +7,7 @@ skip-lint = false
 
 [programs.localnet]
 oracle = "LuS6XnQ3qNXqNQvAJ3akXnEJRBv9XNoUricjMgTyCxX"
-oracle_v3 = "oracLev3111111111111111111111111111111111111"
+oracle_v3 = "8gLZV8k3R6JrAs5BZzyyZQikjEfqvJjAz8PxbiYmz2Kb"
 
 [registry]
 url = "https://api.apr.dev"

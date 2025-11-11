@@ -6,7 +6,7 @@ pub mod state;
 
 use instructions::*;
 
-declare_id!("oracLev3111111111111111111111111111111111111");
+declare_id!("8gLZV8k3R6JrAs5BZzyyZQikjEfqvJjAz8PxbiYmz2Kb");
 
 #[program]
 pub mod oracle_v3 {

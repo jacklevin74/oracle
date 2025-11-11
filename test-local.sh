@@ -42,81 +42,95 @@ echo -e "${GREEN}✓${NC} Node.js found"
 
 echo ""
 
-# Check if validator is running
-if ! solana cluster-version &> /dev/null; then
-    echo -e "${YELLOW}⚠ Local validator not running${NC}"
-    echo "Starting local validator..."
+# Kill any existing validator
+echo "Cleaning up any existing validator..."
+pkill -9 solana-test-validator 2>/dev/null || true
+sleep 2
 
-    # Start validator in background
-    solana-test-validator --reset --quiet &
-    VALIDATOR_PID=$!
+# Start validator
+echo "Starting local validator..."
+solana-test-validator \
+  --reset \
+  --quiet \
+  --bpf-program LuS6XnQ3qNXqNQvAJ3akXnEJRBv9XNoUricjMgTyCxX target/deploy/oracle.so \
+  > /tmp/solana-test-validator.log 2>&1 &
 
-    # Wait for validator to start
-    sleep 5
+VALIDATOR_PID=$!
+echo -e "${GREEN}✓${NC} Validator starting (PID: $VALIDATOR_PID)"
+echo "  Log: /tmp/solana-test-validator.log"
 
+# Wait for validator to be ready
+echo "Waiting for validator to be ready..."
+for i in {1..30}; do
     if solana cluster-version &> /dev/null; then
-        echo -e "${GREEN}✓${NC} Local validator started (PID: $VALIDATOR_PID)"
-        echo "  To stop: kill $VALIDATOR_PID"
-    else
-        echo -e "${RED}❌ Failed to start validator${NC}"
+        echo -e "${GREEN}✓${NC} Validator ready"
+        break
+    fi
+    if [ $i -eq 30 ]; then
+        echo -e "${RED}❌ Validator failed to start${NC}"
+        echo "Check log: tail /tmp/solana-test-validator.log"
         exit 1
     fi
-else
-    echo -e "${GREEN}✓${NC} Local validator already running"
-fi
+    sleep 1
+done
 
 echo ""
 
 # Configure Solana CLI
 echo "Configuring Solana CLI..."
-solana config set --url localhost > /dev/null
+solana config set --url localhost > /dev/null 2>&1
 echo -e "${GREEN}✓${NC} Configured for localhost"
 
 # Check/create test wallet
 WALLET_PATH="$HOME/.config/solana/test-wallet.json"
 if [ ! -f "$WALLET_PATH" ]; then
     echo "Creating test wallet..."
-    solana-keygen new --outfile "$WALLET_PATH" --no-bip39-passphrase --force > /dev/null
+    solana-keygen new --outfile "$WALLET_PATH" --no-bip39-passphrase --force > /dev/null 2>&1
     echo -e "${GREEN}✓${NC} Test wallet created"
 else
     echo -e "${GREEN}✓${NC} Test wallet exists"
 fi
 
 # Set wallet
-solana config set --keypair "$WALLET_PATH" > /dev/null
+solana config set --keypair "$WALLET_PATH" > /dev/null 2>&1
 
 # Airdrop SOL
-BALANCE=$(solana balance | awk '{print $1}')
-if (( $(echo "$BALANCE < 5" | bc -l) )); then
-    echo "Requesting airdrop..."
-    solana airdrop 10 > /dev/null 2>&1 || true
-    echo -e "${GREEN}✓${NC} Airdropped SOL"
+echo "Requesting airdrop..."
+if solana airdrop 10 > /dev/null 2>&1; then
+    BALANCE=$(solana balance 2>/dev/null | awk '{print $1}')
+    echo -e "${GREEN}✓${NC} Airdropped SOL (Balance: $BALANCE SOL)"
 else
-    echo -e "${GREEN}✓${NC} Sufficient balance: $BALANCE SOL"
+    echo -e "${YELLOW}⚠${NC} Airdrop failed (may have sufficient balance)"
+    BALANCE=$(solana balance 2>/dev/null | awk '{print $1}')
+    if [ ! -z "$BALANCE" ]; then
+        echo "  Current balance: $BALANCE SOL"
+    fi
 fi
 
 echo ""
 
 # Build programs
 echo "Building programs..."
-if anchor build; then
-    echo -e "${GREEN}✓${NC} Programs built successfully"
-else
+if anchor build 2>&1 | grep -q "Error"; then
     echo -e "${RED}❌ Build failed${NC}"
+    anchor build
     exit 1
+else
+    echo -e "${GREEN}✓${NC} Programs built successfully"
 fi
 
 echo ""
 
-# Deploy programs
+# Deploy oracle-v3 program
 echo "Deploying Oracle V3 program..."
-if anchor deploy --provider.cluster localnet --program-name oracle-v3; then
-    PROGRAM_ID=$(solana address -k target/deploy/oracle_v3-keypair.json)
+if anchor deploy --provider.cluster localnet --program-name oracle-v3 2>&1 | tee /tmp/deploy.log | grep -q "Error"; then
+    echo -e "${RED}❌ Deployment failed${NC}"
+    cat /tmp/deploy.log
+    exit 1
+else
+    PROGRAM_ID=$(solana address -k target/deploy/oracle_v3-keypair.json 2>/dev/null)
     echo -e "${GREEN}✓${NC} Oracle V3 deployed"
     echo "  Program ID: $PROGRAM_ID"
-else
-    echo -e "${RED}❌ Deployment failed${NC}"
-    exit 1
 fi
 
 echo ""
@@ -125,8 +139,14 @@ echo ""
 echo "Installing app dependencies..."
 cd app
 if [ ! -d "node_modules" ]; then
-    npm install > /dev/null
-    echo -e "${GREEN}✓${NC} Dependencies installed"
+    npm install > /tmp/npm-install.log 2>&1
+    if [ $? -eq 0 ]; then
+        echo -e "${GREEN}✓${NC} Dependencies installed"
+    else
+        echo -e "${RED}❌ npm install failed${NC}"
+        tail -20 /tmp/npm-install.log
+        exit 1
+    fi
 else
     echo -e "${GREEN}✓${NC} Dependencies already installed"
 fi
@@ -135,6 +155,10 @@ echo ""
 echo "======================================"
 echo "Setup Complete! 🎉"
 echo "======================================"
+echo ""
+echo "Validator is running (PID: $VALIDATOR_PID)"
+echo "  To stop: kill $VALIDATOR_PID"
+echo "  Log: tail -f /tmp/solana-test-validator.log"
 echo ""
 echo "Available test commands:"
 echo ""
@@ -149,10 +173,7 @@ echo "  ${GREEN}npm run test:live${NC}         - Live price monitoring"
 echo "  ${GREEN}npm run test:v3${NC}           - Run all V3 tests"
 echo ""
 echo "Or run Anchor tests:"
-echo "  ${GREEN}anchor test --skip-local-validator${NC}"
+echo "  ${GREEN}cd .. && anchor test --skip-local-validator${NC}"
 echo ""
-echo "To stop the validator (if started by this script):"
-if [ ! -z "$VALIDATOR_PID" ]; then
-    echo "  ${GREEN}kill $VALIDATOR_PID${NC}"
-fi
+echo "Quick test: ${GREEN}npm run test:jupiter${NC}"
 echo ""
