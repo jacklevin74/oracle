@@ -56,7 +56,7 @@ export class JupiterPriceClient extends EventEmitter {
         return null;
       }
 
-      const data: JupiterPriceResponse = await response.json();
+      const data = await response.json() as JupiterPriceResponse;
       const priceData = data.data[mint.toString()];
 
       return priceData?.price || null;
@@ -92,7 +92,7 @@ export class JupiterPriceClient extends EventEmitter {
         return prices;
       }
 
-      const data: JupiterPriceResponse = await response.json();
+      const data = await response.json() as JupiterPriceResponse;
       const timestamp = Date.now();
 
       for (const [mint, priceData] of Object.entries(data.data)) {
