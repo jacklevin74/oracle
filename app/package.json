@@ -18,7 +18,16 @@
     "format": "prettier --write 'src/**/*.ts'",
     "format:check": "prettier --check 'src/**/*.ts'",
     "typecheck": "tsc --noEmit",
-    "server": "node server.mjs"
+    "server": "node server.mjs",
+    "test:jupiter": "ts-node test-jupiter.ts",
+    "test:dexscreener": "ts-node test-dexscreener.ts",
+    "test:birdeye": "ts-node test-birdeye.ts",
+    "test:aggregation": "ts-node test-aggregation.ts",
+    "test:quality": "ts-node test-quality.ts",
+    "test:registry": "ts-node test-registry.ts",
+    "test:integration": "ts-node test-integration.ts",
+    "test:live": "ts-node test-live.ts",
+    "test:v3": "npm run test:jupiter && npm run test:aggregation && npm run test:quality && npm run test:registry"
   },
   "keywords": [
     "solana",
