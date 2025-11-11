@@ -1,12 +1,12 @@
 [package]
-name = "oracle"
+name = "oracle-v3"
 version = "0.1.0"
-description = "Created with Anchor"
+description = "Multi-source Oracle v3 with Per-Asset PDA Architecture"
 edition = "2021"
 
 [lib]
 crate-type = ["cdylib", "lib"]
-name = "oracle"
+name = "oracle_v3"
 
 [features]
 default = []
@@ -19,11 +19,9 @@ anchor-debug = []
 custom-heap = []
 custom-panic = []
 
-
 [dependencies]
 anchor-lang = "=0.28.0"
 solana-program = "=1.16.0"
-
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(target_os, values("solana"))'] }

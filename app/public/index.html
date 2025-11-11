@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>∙ ORACLE ∙ CONSOLE ∙</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Courier New', monospace;
+      background: #0a0a0a;
+      color: #00D9FF;
+      padding: 15px;
+      font-size: 12px;
+      line-height: 1.4;
+    }
+
+    .header {
+      text-align: center;
+      font-size: 20px;
+      margin-bottom: 8px;
+      color: #00D9FF;
+      letter-spacing: 4px;
+    }
+
+    .meta {
+      text-align: center;
+      color: #666;
+      margin-bottom: 15px;
+      font-size: 10px;
+    }
+
+    .meta span {
+      color: #888;
+    }
+
+    .stats-bar {
+      display: flex;
+      justify-content: center;
+      gap: 20px;
+      margin-bottom: 15px;
+      padding: 8px;
+      background: #111;
+      border: 1px solid #1a1a1a;
+      font-size: 11px;
+    }
+
+    .stat-item {
+      color: #666;
+    }
+
+    .stat-value {
+      color: #00D9FF;
+      font-weight: bold;
+    }
+
+    .token-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: 8px;
+      margin-bottom: 20px;
+    }
+
+    .token-card {
+      background: #111;
+      border: 1px solid #1a1a1a;
+      padding: 8px;
+      transition: all 0.2s;
+      cursor: pointer;
+    }
+
+    .token-card:hover {
+      border-color: #00D9FF;
+      background: #151515;
+    }
+
+    .token-symbol {
+      color: #00D9FF;
+      font-weight: bold;
+      font-size: 13px;
+      margin-bottom: 4px;
+    }
+
+    .token-price {
+      font-size: 16px;
+      color: #00D9FF;
+      font-weight: bold;
+      margin-bottom: 4px;
+    }
+
+    .token-meta {
+      display: flex;
+      justify-content: space-between;
+      color: #666;
+      font-size: 9px;
+    }
+
+    .latency {
+      color: #888;
+    }
+
+    .latency.fast {
+      color: #00D9FF;
+    }
+
+    .latency.slow {
+      color: #ff6b6b;
+    }
+
+    .status {
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      padding: 4px 8px;
+      background: #1a1a1a;
+      border: 1px solid #333;
+      font-size: 10px;
+      z-index: 1000;
+    }
+
+    .status.connected {
+      border-color: #00D9FF;
+      color: #00D9FF;
+    }
+
+    .status.disconnected {
+      border-color: #ff0000;
+      color: #ff0000;
+    }
+
+    .blink {
+      animation: blink 1s infinite;
+    }
+
+    @keyframes blink {
+      0%, 50% { opacity: 1; }
+      51%, 100% { opacity: 0.3; }
+    }
+
+    .price-up {
+      animation: flash-up 0.5s;
+    }
+
+    .price-down {
+      animation: flash-down 0.5s;
+    }
+
+    @keyframes flash-up {
+      0%, 100% { background: #111; }
+      50% { background: #003322; }
+    }
+
+    @keyframes flash-down {
+      0%, 100% { background: #111; }
+      50% { background: #330022; }
+    }
+
+    @media (max-width: 768px) {
+      .token-grid {
+        grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+      }
+
+      .header {
+        font-size: 16px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="status disconnected" id="status">● CONNECTING...</div>
+
+  <div class="header">∙ ORACLE ∙ CONSOLE ∙</div>
+  <div class="meta">
+    slot <span id="slot">---</span> · pda <span id="pda">---</span> · program 8gLZV8k3R6
+  </div>
+
+  <div class="stats-bar">
+    <div class="stat-item">assets: <span class="stat-value" id="assetCount">0</span></div>
+    <div class="stat-item">avg latency: <span class="stat-value" id="avgLatency">---</span>ms</div>
+    <div class="stat-item">last update: <span class="stat-value" id="lastUpdate">---</span></div>
+  </div>
+
+  <div class="token-grid" id="tokenGrid"></div>
+
+  <script>
+    let ws;
+    let reconnectInterval;
+    let previousPrices = {};
+
+    function connect() {
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      ws = new WebSocket(`${protocol}//${window.location.host}`);
+
+      ws.onopen = () => {
+        console.log('WebSocket connected');
+        document.getElementById('status').textContent = '● CONNECTED';
+        document.getElementById('status').className = 'status connected blink';
+        clearInterval(reconnectInterval);
+      };
+
+      ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        updateDisplay(data);
+      };
+
+      ws.onclose = () => {
+        console.log('WebSocket disconnected');
+        document.getElementById('status').textContent = '● DISCONNECTED';
+        document.getElementById('status').className = 'status disconnected';
+
+        // Reconnect after 2 seconds
+        reconnectInterval = setInterval(() => {
+          console.log('Attempting to reconnect...');
+          connect();
+        }, 2000);
+      };
+
+      ws.onerror = (error) => {
+        console.error('WebSocket error:', error);
+      };
+    }
+
+    function formatPrice(price) {
+      if (price >= 1000) return `$${(price).toFixed(0)}`;
+      if (price >= 1) return `$${price.toFixed(2)}`;
+      if (price >= 0.01) return `$${price.toFixed(4)}`;
+      if (price >= 0.0001) return `$${price.toFixed(6)}`;
+      return `$${price.toFixed(8)}`;
+    }
+
+    function updateDisplay(data) {
+      // Update meta info
+      document.getElementById('slot').textContent = data.slot || '---';
+      const pdaShort = data.pda ? data.pda.slice(0, 8) + '...' : '---';
+      document.getElementById('pda').textContent = pdaShort;
+
+      if (!data.assets || data.assets.length === 0) {
+        return;
+      }
+
+      // Update stats bar
+      document.getElementById('assetCount').textContent = data.assets.length;
+      const avgLatency = data.assets.reduce((sum, a) => sum + a.latency, 0) / data.assets.length;
+      document.getElementById('avgLatency').textContent = Math.round(avgLatency);
+      document.getElementById('lastUpdate').textContent = data.assets[0]?.lastUpdate || '---';
+
+      // Update token grid
+      const gridHTML = data.assets.map(asset => {
+        const prevPrice = previousPrices[asset.symbol];
+        let priceClass = '';
+        if (prevPrice !== undefined && prevPrice !== asset.aggregatedPrice) {
+          priceClass = asset.aggregatedPrice > prevPrice ? 'price-up' : 'price-down';
+        }
+        previousPrices[asset.symbol] = asset.aggregatedPrice;
+
+        const latencyClass = asset.latency < 1000 ? 'fast' : asset.latency > 2000 ? 'slow' : '';
+
+        return `
+          <div class="token-card ${priceClass}">
+            <div class="token-symbol">${asset.symbol}</div>
+            <div class="token-price">${formatPrice(asset.aggregatedPrice)}</div>
+            <div class="token-meta">
+              <span class="latency ${latencyClass}">${asset.latency}ms</span>
+              <span>${asset.updaters.filter(u => u.price > 0).length}/4</span>
+            </div>
+          </div>
+        `;
+      }).join('');
+      document.getElementById('tokenGrid').innerHTML = gridHTML;
+
+      // Flash status to show update
+      const statusEl = document.getElementById('status');
+      statusEl.classList.remove('blink');
+      setTimeout(() => statusEl.classList.add('blink'), 100);
+    }
+
+    // Initial connection
+    connect();
+  </script>
+</body>
+</html>

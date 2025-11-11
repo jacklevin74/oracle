@@ -18,7 +18,18 @@
     "format": "prettier --write 'src/**/*.ts'",
     "format:check": "prettier --check 'src/**/*.ts'",
     "typecheck": "tsc --noEmit",
-    "server": "node server.mjs"
+    "server": "node server.mjs",
+    "test:jupiter": "ts-node test-jupiter.ts",
+    "test:dexscreener": "ts-node test-dexscreener.ts",
+    "test:birdeye": "ts-node test-birdeye.ts",
+    "test:aggregation": "ts-node test-aggregation.ts",
+    "test:quality": "ts-node test-quality.ts",
+    "test:registry": "ts-node test-registry.ts",
+    "test:integration": "ts-node test-integration.ts",
+    "test:live": "ts-node test-live.ts",
+    "test:v3": "npm run test:jupiter && npm run test:aggregation && npm run test:quality && npm run test:registry",
+    "test:e2e": "ts-node test-e2e.ts",
+    "dashboard": "ts-node dashboard-server.ts"
   },
   "keywords": [
     "solana",
@@ -40,6 +51,7 @@
     "ws": "^8.18.3"
   },
   "devDependencies": {
+    "@types/express": "^5.0.5",
     "@types/node": "^20.17.10",
     "@types/ws": "^8.5.13",
     "@typescript-eslint/eslint-plugin": "^6.21.0",
