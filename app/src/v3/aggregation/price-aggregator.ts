@@ -61,8 +61,8 @@ export class PriceAggregator {
     const q1Index = Math.floor(prices.length * 0.25);
     const q3Index = Math.floor(prices.length * 0.75);
 
-    const q1 = prices[q1Index];
-    const q3 = prices[q3Index];
+    const q1 = prices[q1Index]!;
+    const q3 = prices[q3Index]!;
     const iqr = q3 - q1;
 
     const lowerBound = q1 - 1.5 * iqr;
@@ -115,7 +115,7 @@ export class PriceAggregator {
     }
 
     if (data.length === 1) {
-      return data[0].price;
+      return data[0]!.price;
     }
 
     // Sort by price
@@ -134,7 +134,7 @@ export class PriceAggregator {
       }
     }
 
-    return sorted[sorted.length - 1].price;
+    return sorted[sorted.length - 1]!.price;
   }
 
   /**
@@ -192,7 +192,7 @@ export class PriceAggregator {
         return a.tier - b.tier;
       }
       return b.confidence - a.confidence;
-    })[0];
+    })[0]!;
 
     return {
       price: best.price,

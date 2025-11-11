@@ -7,7 +7,7 @@ pub fn initialize_registry(ctx: Context<InitializeRegistry>, authority: Pubkey) 
     let registry = &mut ctx.accounts.registry;
     registry.authority = authority;
     registry.asset_count = 0;
-    registry.bump = ctx.bumps.registry;
+    registry.bump = *ctx.bumps.get("registry").unwrap();
     Ok(())
 }
 
@@ -44,13 +44,13 @@ pub fn register_asset(
     asset_config.is_active = true;
     asset_config.pyth_feed_id = pyth_feed_id;
     asset_config.added_at = Clock::get()?.unix_timestamp;
-    asset_config.bump = ctx.bumps.asset_config;
+    asset_config.bump = *ctx.bumps.get("asset_config").unwrap();
 
     // Initialize price data
     price_data.mint = mint;
     price_data.prices = Triplet::default();
     price_data.last_update = 0;
-    price_data.bump = ctx.bumps.price_data;
+    price_data.bump = *ctx.bumps.get("price_data").unwrap();
 
     // Increment asset count
     registry.asset_count = registry.asset_count.checked_add(1).unwrap();
