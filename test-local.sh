@@ -42,17 +42,28 @@ echo -e "${GREEN}✓${NC} Node.js found"
 
 echo ""
 
+# Build programs first
+echo "Building programs..."
+if anchor build 2>&1 | grep -q "Error"; then
+    echo -e "${RED}❌ Build failed${NC}"
+    anchor build
+    exit 1
+else
+    echo -e "${GREEN}✓${NC} Programs built successfully"
+fi
+
+echo ""
+
 # Kill any existing validator
 echo "Cleaning up any existing validator..."
 pkill -9 solana-test-validator 2>/dev/null || true
 sleep 2
 
-# Start validator
+# Start validator (without preloading oracle.so - we'll deploy it instead)
 echo "Starting local validator..."
 solana-test-validator \
   --reset \
   --quiet \
-  --bpf-program LuS6XnQ3qNXqNQvAJ3akXnEJRBv9XNoUricjMgTyCxX target/deploy/oracle.so \
   > /tmp/solana-test-validator.log 2>&1 &
 
 VALIDATOR_PID=$!
@@ -105,18 +116,6 @@ else
     if [ ! -z "$BALANCE" ]; then
         echo "  Current balance: $BALANCE SOL"
     fi
-fi
-
-echo ""
-
-# Build programs
-echo "Building programs..."
-if anchor build 2>&1 | grep -q "Error"; then
-    echo -e "${RED}❌ Build failed${NC}"
-    anchor build
-    exit 1
-else
-    echo -e "${GREEN}✓${NC} Programs built successfully"
 fi
 
 echo ""
