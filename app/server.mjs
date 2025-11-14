@@ -1,9 +1,9 @@
 #!/usr/bin/env node
-// app/server.js
-// VT100-style oracle dashboard.
-// - TOP: Stacked AGGREGATES (BTC / ETH / SOL) showing average age in ms (single number) + latest local time
+// app/server.mjs
+// VT100-style oracle dashboard with Server-Sent Events support
+// - TOP: Stacked AGGREGATES (BTC / ETH / SOL) showing average age in ms + latest local time
 // - BELOW: Collapsible per-signer tables (toggle with triangle), now with LOCAL time column
-// - Fast refresh: 250ms
+// - Real-time updates via SSE: 250ms
 
 import express from "express";
 import { Connection, PublicKey } from "@solana/web3.js";
@@ -189,6 +189,41 @@ app.get("/api/state", async (_req, res) => {
   }
 });
 
+/* ----------- SSE endpoint for real-time streaming ----------- */
+app.get("/api/stream", (req, res) => {
+  // Set headers for SSE
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+
+  // Send initial connection event
+  res.write('data: {"connected": true}\n\n');
+
+  // Function to send updates
+  const sendUpdate = async () => {
+    try {
+      const state = await readOracleState();
+      res.write(`data: ${JSON.stringify(state)}\n\n`);
+    } catch (e) {
+      console.error("SSE error:", e);
+      res.write(`data: ${JSON.stringify({ error: e?.message ?? String(e) })}\n\n`);
+    }
+  };
+
+  // Send updates every POLL_MS
+  const interval = setInterval(sendUpdate, POLL_MS);
+
+  // Send first update immediately
+  sendUpdate();
+
+  // Clean up on client disconnect
+  req.on('close', () => {
+    clearInterval(interval);
+    res.end();
+  });
+});
+
 /* ----------- HTML (aggregates on TOP with avg ms + latest local time; collapsible details) ----------- */
 const COL_HDRS = ["CGLezz", "FprJrT", "7FZvQQ", "55MyuY"]; // mn_relay1, mn_relay2, mn_relay3, reserved
 const HTML = /* html */ `
@@ -275,7 +310,6 @@ const HTML = /* html */ `
 
   <script>
     const COLS = ${JSON.stringify(COL_HDRS)};
-    const POLL_MS = ${POLL_MS};
     // const FORCE_TZ = "Pacific/Honolulu"; // <- uncomment to force a timezone
 
     function cls(age){
@@ -340,81 +374,98 @@ const HTML = /* html */ `
     }
     toggle.addEventListener('click', ()=>{ open = !open; renderToggle(); });
 
-    async function tick(){
-      try{
-        const r = await fetch('/api/state',{ cache:'no-store' });
-        const d = await r.json();
-        const meta = document.getElementById('meta');
-        const stack = document.getElementById('stack');
-        const groups = document.getElementById('groups');
-        const oB = document.getElementById('agg-btc');
-        const oE = document.getElementById('agg-eth');
-        const oS = document.getElementById('agg-sol');
-        const oH = document.getElementById('agg-hype');
-        const oZ = document.getElementById('agg-zec');
-        const sB = document.getElementById('sub-btc');
-        const sE = document.getElementById('sub-eth');
-        const sS = document.getElementById('sub-sol');
-        const sH = document.getElementById('sub-hype');
-        const sZ = document.getElementById('sub-zec');
+    function updateUI(d){
+      const meta = document.getElementById('meta');
+      const stack = document.getElementById('stack');
+      const groups = document.getElementById('groups');
+      const oB = document.getElementById('agg-btc');
+      const oE = document.getElementById('agg-eth');
+      const oS = document.getElementById('agg-sol');
+      const oH = document.getElementById('agg-hype');
+      const oZ = document.getElementById('agg-zec');
+      const sB = document.getElementById('sub-btc');
+      const sE = document.getElementById('sub-eth');
+      const sS = document.getElementById('sub-sol');
+      const sH = document.getElementById('sub-hype');
+      const sZ = document.getElementById('sub-zec');
 
-        if(!d.exists){
-          meta.textContent = d.message || "state not initialized";
-          groups.innerHTML = "";
-          stack.style.display = "none";
-          return;
-        }
-
-        meta.textContent = \`slot \${d.ctxSlot} · pda \${d.pda} · dec \${d.decimals}\`;
-
-        // TOP aggregates
-        const B = d.agg?.BTC, E = d.agg?.ETH, S = d.agg?.SOL, H = d.agg?.HYPE, Z = d.agg?.ZEC;
-        oB.textContent = fmt2(B?.avg ?? null);
-        oE.textContent = fmt2(E?.avg ?? null);
-        oS.textContent = fmt2(S?.avg ?? null);
-        oH.textContent = fmt2(H?.avg ?? null);
-        oZ.textContent = fmt2(Z?.avg ?? null);
-
-        const tB = d.latestTs?.BTC ?? null;
-        const tE = d.latestTs?.ETH ?? null;
-        const tS = d.latestTs?.SOL ?? null;
-        const tH = d.latestTs?.HYPE ?? null;
-        const tZ = d.latestTs?.ZEC ?? null;
-
-        const lcB = tB ? fmtLocalClock(tB) : null;
-        const lcE = tE ? fmtLocalClock(tE) : null;
-        const lcS = tS ? fmtLocalClock(tS) : null;
-        const lcH = tH ? fmtLocalClock(tH) : null;
-        const lcZ = tZ ? fmtLocalClock(tZ) : null;
-
-        sB.textContent = (B && B.count)
-          ? \`\${fmtMs(B.ageAvg)} · \${lcB ?? "–"}\`
-          : "–";
-        sE.textContent = (E && E.count)
-          ? \`\${fmtMs(E.ageAvg)} · \${lcE ?? "–"}\`
-          : "–";
-        sS.textContent = (S && S.count)
-          ? \`\${fmtMs(S.ageAvg)} · \${lcS ?? "–"}\`
-          : "–";
-        sH.textContent = (H && H.count)
-          ? \`\${fmtMs(H.ageAvg)} · \${lcH ?? "–"}\`
-          : "–";
-        sZ.textContent = (Z && Z.count)
-          ? \`\${fmtMs(Z.ageAvg)} · \${lcZ ?? "–"}\`
-          : "–";
-
-        stack.style.display = (B?.count || E?.count || S?.count || H?.count || Z?.count) ? "block" : "none";
-
-        // Per-signer tables with LOCAL time column
-        groups.innerHTML = row("BTC", d.groups.BTC) + row("ETH", d.groups.ETH) + row("SOL", d.groups.SOL) + row("HYPE", d.groups.HYPE) + row("ZEC", d.groups.ZEC);
-      }catch(e){
-        document.getElementById('meta').textContent = "error: " + (e.message || e);
-        document.getElementById('stack').style.display = "none";
+      if(!d.exists){
+        meta.textContent = d.message || "state not initialized";
+        groups.innerHTML = "";
+        stack.style.display = "none";
+        return;
       }
+
+      meta.textContent = \`slot \${d.ctxSlot} · pda \${d.pda} · dec \${d.decimals} · [SSE]\`;
+
+      // TOP aggregates
+      const B = d.agg?.BTC, E = d.agg?.ETH, S = d.agg?.SOL, H = d.agg?.HYPE, Z = d.agg?.ZEC;
+      oB.textContent = fmt2(B?.avg ?? null);
+      oE.textContent = fmt2(E?.avg ?? null);
+      oS.textContent = fmt2(S?.avg ?? null);
+      oH.textContent = fmt2(H?.avg ?? null);
+      oZ.textContent = fmt2(Z?.avg ?? null);
+
+      const tB = d.latestTs?.BTC ?? null;
+      const tE = d.latestTs?.ETH ?? null;
+      const tS = d.latestTs?.SOL ?? null;
+      const tH = d.latestTs?.HYPE ?? null;
+      const tZ = d.latestTs?.ZEC ?? null;
+
+      const lcB = tB ? fmtLocalClock(tB) : null;
+      const lcE = tE ? fmtLocalClock(tE) : null;
+      const lcS = tS ? fmtLocalClock(tS) : null;
+      const lcH = tH ? fmtLocalClock(tH) : null;
+      const lcZ = tZ ? fmtLocalClock(tZ) : null;
+
+      sB.textContent = (B && B.count)
+        ? \`\${fmtMs(B.ageAvg)} · \${lcB ?? "–"}\`
+        : "–";
+      sE.textContent = (E && E.count)
+        ? \`\${fmtMs(E.ageAvg)} · \${lcE ?? "–"}\`
+        : "–";
+      sS.textContent = (S && S.count)
+        ? \`\${fmtMs(S.ageAvg)} · \${lcS ?? "–"}\`
+        : "–";
+      sH.textContent = (H && H.count)
+        ? \`\${fmtMs(H.ageAvg)} · \${lcH ?? "–"}\`
+        : "–";
+      sZ.textContent = (Z && Z.count)
+        ? \`\${fmtMs(Z.ageAvg)} · \${lcZ ?? "–"}\`
+        : "–";
+
+      stack.style.display = (B?.count || E?.count || S?.count || H?.count || Z?.count) ? "block" : "none";
+
+      // Per-signer tables with LOCAL time column
+      groups.innerHTML = row("BTC", d.groups.BTC) + row("ETH", d.groups.ETH) + row("SOL", d.groups.SOL) + row("HYPE", d.groups.HYPE) + row("ZEC", d.groups.ZEC);
     }
 
+    // Set up Server-Sent Events connection
+    const eventSource = new EventSource('/api/stream');
+
+    eventSource.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.connected) {
+          console.log('SSE connected');
+        } else if (data.error) {
+          document.getElementById('meta').textContent = "error: " + data.error;
+          document.getElementById('stack').style.display = "none";
+        } else {
+          updateUI(data);
+        }
+      } catch (e) {
+        console.error('Error parsing SSE data:', e);
+      }
+    };
+
+    eventSource.onerror = (error) => {
+      console.error('SSE error:', error);
+      document.getElementById('meta').textContent = "Connection error - retrying...";
+      // EventSource automatically reconnects
+    };
+
     renderToggle();
-    tick(); setInterval(tick, ${POLL_MS});
   </script>
 </body>
 </html>
@@ -424,15 +475,37 @@ const HTML = /* html */ `
 app.get("/", (_req, res) => res.type("html").send(HTML));
 
 /* ----------- start ----------- */
-app.listen(PORT, HOST, () => {
+const server = app.listen(PORT, HOST, () => {
   console.log(`Server on http://${HOST}:${PORT} (RPC=${RPC_URL}, commitment=${COMMITMENT}, poll=${POLL_MS}ms)`);
+});
+
+server.on('error', (err) => {
+  console.error("SERVER ERROR:", err);
+  process.exit(1);
 });
 
 /* ----------- process-level guards ----------- */
 process.on("unhandledRejection", (err) => {
   console.error("UNHANDLED REJECTION:", err);
+  // Don't exit, just log
 });
 process.on("uncaughtException", (err) => {
   console.error("UNCAUGHT EXCEPTION:", err);
+  // Don't exit, just log
 });
 
+process.on('SIGTERM', () => {
+  console.log('SIGTERM received, closing server...');
+  server.close(() => {
+    console.log('Server closed');
+    process.exit(0);
+  });
+});
+
+process.on('SIGINT', () => {
+  console.log('SIGINT received, closing server...');
+  server.close(() => {
+    console.log('Server closed');
+    process.exit(0);
+  });
+});
