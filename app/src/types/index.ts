@@ -120,6 +120,7 @@ export interface CliOptions {
   useStdin: boolean;
   privateKeyFromEnv: string | null;
   walletPath: string | null;
+  keyFileName: string | null;
 }
 
 /**

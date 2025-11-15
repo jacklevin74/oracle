@@ -31,6 +31,10 @@ export function parseCliArgs(argv: string[]): CliOptions {
   // Check for --prompt flag (interactive prompt - secure)
   const usePrompt = args.includes('--prompt') || args.includes('-p');
 
+  // Check for --key-file option (loads from .keys/ directory)
+  const keyFileArg = args.find((a) => a.startsWith('--key-file='));
+  const keyFileName = keyFileArg?.split('=')[1] || null;
+
   // Check for wallet file (legacy method)
   const walletArg = args.find((a) => !a.startsWith('--') && !a.startsWith('-'));
   const walletPath = walletArg || null;
@@ -45,6 +49,7 @@ export function parseCliArgs(argv: string[]): CliOptions {
     useStdin,
     privateKeyFromEnv,
     walletPath,
+    keyFileName,
   };
 }
 
@@ -58,6 +63,7 @@ export function validateCliOptions(options: CliOptions): string | null {
     privateKeyFromEnv,
     useStdin,
     usePrompt,
+    keyFileName,
   } = options;
 
   // In dry run mode, we don't need any authentication
@@ -66,7 +72,7 @@ export function validateCliOptions(options: CliOptions): string | null {
   }
 
   // Check if at least one authentication method is provided
-  if (!walletPath && !privateKeyFromEnv && !useStdin && !usePrompt) {
+  if (!walletPath && !privateKeyFromEnv && !useStdin && !usePrompt && !keyFileName) {
     return 'No authentication method provided';
   }
 
@@ -79,6 +85,7 @@ export function validateCliOptions(options: CliOptions): string | null {
 export function displayUsage(): void {
   console.error('Usage:');
   console.error('  Interactive prompt (SECURE):  node app/pyth_sim.cjs --prompt');
+  console.error('  With key file:                node app/pyth_sim.cjs --key-file=mn_relay1.json');
   console.error('  With env var:                 ORACLE_PRIVATE_KEY=<key> node app/pyth_sim.cjs');
   console.error('  With stdin:                   echo <key> | node app/pyth_sim.cjs --private-key-stdin');
   console.error('  With wallet file:             node app/pyth_sim.cjs <wallet.json>');
@@ -86,6 +93,7 @@ export function displayUsage(): void {
   console.error('');
   console.error('Options:');
   console.error('  --prompt, -p               Securely prompt for private key (hidden input)');
+  console.error('  --key-file=<filename>      Load key from .keys/<filename> (e.g., mn_relay1.json)');
   console.error('  --private-key-stdin        Read private key from stdin');
   console.error('  --daemon, -d               Fork to background after authentication');
   console.error('  --dryrun                   Run without sending transactions');
@@ -93,6 +101,7 @@ export function displayUsage(): void {
   console.error('  --log=<file>               Write logs to specified file (appends)');
   console.error('');
   console.error('Examples:');
+  console.error('  node app/pyth_sim.cjs --key-file=mn_relay1.json --daemon --log=relay.log');
   console.error('  node app/pyth_sim.cjs --prompt --daemon --log=/var/log/oracle.log');
   console.error('  node app/pyth_sim.cjs --prompt --verbose');
   console.error('  node app/pyth_sim.cjs -p -d --log=./oracle.log');

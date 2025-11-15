@@ -125,6 +125,11 @@ async function main(): Promise<void> {
         // Read from stdin
         privateKey = await readPrivateKeyFromStdin();
         console.log('✓ Loading keypair from stdin');
+      } else if (options.keyFileName) {
+        // Read from .keys/ directory
+        const keyFilePath = path.join(__dirname, '..', '..', '.keys', options.keyFileName);
+        keypair = readKeypairFromFile(keyFilePath);
+        console.log(`✓ Loading keypair from .keys/${options.keyFileName}`);
       } else if (options.walletPath) {
         // Read from wallet file (legacy)
         keypair = readKeypairFromFile(options.walletPath);
