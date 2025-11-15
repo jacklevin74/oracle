@@ -258,7 +258,7 @@ export class QualityController extends EventEmitter {
     const asset = mint.toString();
     const history = this.metrics.get(asset) || [];
 
-    return history.length > 0 ? history[history.length - 1] : null;
+    return history.length > 0 ? history[history.length - 1]! : null;
   }
 
   /**

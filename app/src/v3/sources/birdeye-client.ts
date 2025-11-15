@@ -63,7 +63,7 @@ export class BirdeyeClient extends EventEmitter {
         return null;
       }
 
-      const data: BirdeyePriceResponse = await response.json();
+      const data = await response.json() as BirdeyePriceResponse;
 
       if (!data.success || !data.data?.value) {
         return null;
@@ -95,7 +95,7 @@ export class BirdeyeClient extends EventEmitter {
         return null;
       }
 
-      const data: BirdeyePriceResponse = await response.json();
+      const data = await response.json() as BirdeyePriceResponse;
 
       if (!data.success || !data.data?.value) {
         return null;
@@ -139,7 +139,7 @@ export class BirdeyeClient extends EventEmitter {
         return prices;
       }
 
-      const data: BirdeyeMultiPriceResponse = await response.json();
+      const data = await response.json() as BirdeyeMultiPriceResponse;
 
       if (!data.success || !data.data) {
         return prices;

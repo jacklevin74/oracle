@@ -79,7 +79,7 @@ export const PYTH_HERMES_URL = 'https://hermes.pyth.network';
 /**
  * Default RPC URL
  */
-export const DEFAULT_RPC_URL = 'http://127.0.0.1:8899';
+export const DEFAULT_RPC_URL = 'https://rpc.mainnet.x1.xyz';
 
 /**
  * Tick interval for price updates (milliseconds)

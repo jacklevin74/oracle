@@ -4,7 +4,6 @@
 
 import { PublicKey } from '@solana/web3.js';
 import * as fs from 'fs/promises';
-import * as path from 'path';
 
 export interface AssetSourceConfig {
   pyth?: {

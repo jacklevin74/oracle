@@ -87,7 +87,7 @@ export class DexScreenerClient extends EventEmitter {
         return null;
       }
 
-      const data: DexScreenerResponse = await response.json();
+      const data = await response.json() as DexScreenerResponse;
 
       if (!data.pairs || data.pairs.length === 0) {
         return null;
@@ -97,6 +97,10 @@ export class DexScreenerClient extends EventEmitter {
       const bestPair = data.pairs.sort((a, b) =>
         (b.liquidity?.usd || 0) - (a.liquidity?.usd || 0)
       )[0];
+
+      if (!bestPair) {
+        return null;
+      }
 
       const price = parseFloat(bestPair.priceUsd);
       return isFinite(price) ? price : null;
@@ -120,7 +124,7 @@ export class DexScreenerClient extends EventEmitter {
         return null;
       }
 
-      const data: DexScreenerResponse = await response.json();
+      const data = await response.json() as DexScreenerResponse;
 
       if (!data.pairs || data.pairs.length === 0) {
         return null;
@@ -130,6 +134,10 @@ export class DexScreenerClient extends EventEmitter {
       const bestPair = data.pairs.sort((a, b) =>
         (b.liquidity?.usd || 0) - (a.liquidity?.usd || 0)
       )[0];
+
+      if (!bestPair) {
+        return null;
+      }
 
       const price = parseFloat(bestPair.priceUsd);
       if (!isFinite(price)) {
