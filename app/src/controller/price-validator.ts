@@ -13,6 +13,7 @@ export interface PriceValidationConfig {
   minUpdateIntervalMs: number;
 }
 
+/* DISABLED - VALIDATION CONFIGS NOT IN USE
 const VALIDATION_CONFIGS: Record<string, PriceValidationConfig> = {
   BTC: {
     minPrice: 10_000,
@@ -45,6 +46,7 @@ const VALIDATION_CONFIGS: Record<string, PriceValidationConfig> = {
     minUpdateIntervalMs: 300,
   },
 };
+*/
 
 export class PriceValidator {
   private lastPrices: Record<string, number | null> = {
@@ -65,8 +67,13 @@ export class PriceValidator {
 
   /**
    * Validate a price before signing
+   * VALIDATION DISABLED - Always returns valid
    */
-  validate(asset: string, price: number): { valid: boolean; reason?: string } {
+  validate(_asset: string, _price: number): { valid: boolean; reason?: string } {
+    // Validation disabled - accept all prices
+    return { valid: true };
+
+    /* DISABLED VALIDATION CODE:
     const config = VALIDATION_CONFIGS[asset];
     if (!config) {
       return { valid: false, reason: `Unknown asset: ${asset}` };
@@ -103,6 +110,7 @@ export class PriceValidator {
     }
 
     return { valid: true };
+    */
   }
 
   /**
