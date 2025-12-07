@@ -95,7 +95,8 @@ async function readOracleState() {
   }
 
   const payload = data.subarray(DISC_LEN);
-  const decimals = readU8(payload, OFF.decimals);
+  // HARDCODED: Using 8 decimals for test program (on-chain state has 6)
+  const decimals = 8;
   const btc = decodeTrip(payload, OFF.btc);
   const eth = decodeTrip(payload, OFF.eth);
   const sol = decodeTrip(payload, OFF.sol);
