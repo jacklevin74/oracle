@@ -38,6 +38,8 @@ export interface PriceData {
   tsla: number | null;
   nvda: number | null;
   mstr: number | null;
+  gold: number | null;
+  silver: number | null;
 }
 
 /**
@@ -59,6 +61,8 @@ export class OracleController extends EventEmitter {
     TSLA: null,
     NVDA: null,
     MSTR: null,
+    GOLD: null,
+    SILVER: null,
   };
 
   private lastSentI64: Record<string, number | null> = {
@@ -70,6 +74,8 @@ export class OracleController extends EventEmitter {
     TSLA: null,
     NVDA: null,
     MSTR: null,
+    GOLD: null,
+    SILVER: null,
   };
 
   private updateTimer: NodeJS.Timeout | null = null;
@@ -266,6 +272,8 @@ export class OracleController extends EventEmitter {
       const tslaI64 = updates.find(u => u.asset === 'TSLA')?.i64 || this.lastSentI64.TSLA || 0;
       const nvdaI64 = updates.find(u => u.asset === 'NVDA')?.i64 || this.lastSentI64.NVDA || 0;
       const mstrI64 = updates.find(u => u.asset === 'MSTR')?.i64 || this.lastSentI64.MSTR || 0;
+      const goldI64 = updates.find(u => u.asset === 'GOLD')?.i64 || this.lastSentI64.GOLD || 0;
+      const silverI64 = updates.find(u => u.asset === 'SILVER')?.i64 || this.lastSentI64.SILVER || 0;
 
       const clientTsMs = Date.now();
 
@@ -281,6 +289,8 @@ export class OracleController extends EventEmitter {
         tslaI64,
         nvdaI64,
         mstrI64,
+        goldI64,
+        silverI64,
         clientTsMs
       );
 

@@ -81,6 +81,8 @@ export class OracleService extends EventEmitter {
       TSLA: null,
       NVDA: null,
       MSTR: null,
+      GOLD: null,
+      SILVER: null,
     };
 
     this.sentUpTo = {
@@ -92,6 +94,8 @@ export class OracleService extends EventEmitter {
       TSLA: 0,
       NVDA: 0,
       MSTR: 0,
+      GOLD: 0,
+      SILVER: 0,
     };
 
     this.lastSentI64 = {
@@ -103,6 +107,8 @@ export class OracleService extends EventEmitter {
       TSLA: null,
       NVDA: null,
       MSTR: null,
+      GOLD: null,
+      SILVER: null,
     };
 
     this.compositeData = {
@@ -114,6 +120,8 @@ export class OracleService extends EventEmitter {
       TSLA: { price: null, count: 0, sources: [] },
       NVDA: { price: null, count: 0, sources: [] },
       MSTR: { price: null, count: 0, sources: [] },
+      GOLD: { price: null, count: 0, sources: [] },
+      SILVER: { price: null, count: 0, sources: [] },
     };
 
     // Initialize clients
@@ -433,7 +441,7 @@ export class OracleService extends EventEmitter {
 
     const t0 = Date.now();
 
-    // Collect prices for all 8 assets
+    // Collect prices for all 10 assets
     const btcData = fresh.find((f) => f.sym === 'BTC');
     const ethData = fresh.find((f) => f.sym === 'ETH');
     const solData = fresh.find((f) => f.sym === 'SOL');
@@ -442,6 +450,8 @@ export class OracleService extends EventEmitter {
     const tslaData = fresh.find((f) => f.sym === 'TSLA');
     const nvdaData = fresh.find((f) => f.sym === 'NVDA');
     const mstrData = fresh.find((f) => f.sym === 'MSTR');
+    const goldData = fresh.find((f) => f.sym === 'GOLD');
+    const silverData = fresh.find((f) => f.sym === 'SILVER');
 
     const btcPrice = btcData ? btcData.candI64 : this.lastSentI64.BTC || 0;
     const ethPrice = ethData ? ethData.candI64 : this.lastSentI64.ETH || 0;
@@ -451,6 +461,8 @@ export class OracleService extends EventEmitter {
     const tslaPrice = tslaData ? tslaData.candI64 : this.lastSentI64.TSLA || 0;
     const nvdaPrice = nvdaData ? nvdaData.candI64 : this.lastSentI64.NVDA || 0;
     const mstrPrice = mstrData ? mstrData.candI64 : this.lastSentI64.MSTR || 0;
+    const goldPrice = goldData ? goldData.candI64 : this.lastSentI64.GOLD || 0;
+    const silverPrice = silverData ? silverData.candI64 : this.lastSentI64.SILVER || 0;
 
     const tRecv = Date.now();
 
@@ -466,6 +478,8 @@ export class OracleService extends EventEmitter {
         tslaPrice,
         nvdaPrice,
         mstrPrice,
+        goldPrice,
+        silverPrice,
         clientTsMs
       );
 

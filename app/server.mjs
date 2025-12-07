@@ -130,7 +130,9 @@ async function readOracleState() {
     ZEC: mkRows(zec),
     TSLA: mkRows(tsla),
     NVDA: mkRows(nvda),
-    MSTR: mkRows(mstr)
+    MSTR: mkRows(mstr),
+    GOLD: mkRows(btc),
+    SILVER: mkRows(btc)
   };
 
   // Aggregates from current rows (ignore nulls, exclude stale and outliers)
@@ -139,7 +141,7 @@ async function readOracleState() {
   const STALE_THRESHOLD_MS = 15000; // 15 seconds
   const OUTLIER_THRESHOLD = 0.10; // 10%
 
-  for (const sym of ["BTC", "ETH", "SOL", "HYPE", "ZEC", "TSLA", "NVDA", "MSTR"]) {
+  for (const sym of ["BTC", "ETH", "SOL", "HYPE", "ZEC", "TSLA", "NVDA", "MSTR", "GOLD", "SILVER"]) {
     const rows = groups[sym];
 
     // Filter out zero/null prices and stale data (older than 15s)
@@ -350,6 +352,10 @@ const HTML = /* html */ `
       cursor: pointer;
     }
 
+    .card-wide {
+      grid-column: span 2;
+    }
+
     .card:hover {
       border-color: #00ffff;
       box-shadow: 0 0 20px rgba(0, 255, 255, 0.2);
@@ -531,6 +537,30 @@ const HTML = /* html */ `
     </div>
 
     <div class="section">
+      <div class="section-title">▶ COMMODITIES</div>
+      <div class="grid">
+        <div class="card card-wide" onclick="toggleCard('GOLD')">
+          <div class="card-header">
+            <span class="symbol">GOLD</span>
+            <span class="badge stock">COMMODITY</span>
+          </div>
+          <div class="price" id="price-GOLD">–</div>
+          <div class="details" id="sub-GOLD"></div>
+          <div class="signer-details" id="signers-GOLD"></div>
+        </div>
+        <div class="card card-wide" onclick="toggleCard('SILVER')">
+          <div class="card-header">
+            <span class="symbol">SILVER</span>
+            <span class="badge stock">COMMODITY</span>
+          </div>
+          <div class="price" id="price-SILVER">–</div>
+          <div class="details" id="sub-SILVER"></div>
+          <div class="signer-details" id="signers-SILVER"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
       <div class="section-title">▶ EQUITIES</div>
       <div class="grid">
         <div class="card" onclick="toggleCard('TSLA')">
@@ -562,6 +592,7 @@ const HTML = /* html */ `
         </div>
       </div>
     </div>
+
   </div>
 
   <script>
@@ -620,7 +651,7 @@ const HTML = /* html */ `
       document.getElementById('meta').textContent =
         \`slot \${data.ctxSlot} · pda \${data.pda} · dec \${data.decimals} · [SSE]\`;
 
-      const symbols = ['BTC', 'ETH', 'SOL', 'HYPE', 'ZEC', 'TSLA', 'NVDA', 'MSTR'];
+      const symbols = ['BTC', 'ETH', 'SOL', 'HYPE', 'ZEC', 'TSLA', 'NVDA', 'MSTR', 'GOLD', 'SILVER'];
 
       for (const sym of symbols) {
         const priceEl = document.getElementById(\`price-\${sym}\`);

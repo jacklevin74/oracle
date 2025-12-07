@@ -63,6 +63,8 @@ export const ASSETS: Record<string, Asset> = {
   TSLA: Asset.TSLA,
   NVDA: Asset.NVDA,
   MSTR: Asset.MSTR,
+  GOLD: Asset.GOLD,
+  SILVER: Asset.SILVER,
 };
 
 /**
@@ -77,6 +79,8 @@ export const PYTH_FEEDS: PythFeeds = {
   TSLA: '0x16dad506d7db8da01c87581c87ca897a012a153557d4d578c3b9c9e1bc0632f1',
   NVDA: '0xb1073854ed24cbc755dc527418f52b7d271f6cc967bbf8d8129112b18860a593',
   MSTR: '0xe1e80251e5f5184f2195008382538e847fafc36f751896889dd3d1b1f6111f09',
+  GOLD: '0x765d2ba906dbc32ca17cc11f5310a89e9ee1f6420508c63861f2f8ba4ee34bb2',
+  SILVER: '0xf2fb02c32b055c805e7238d628e5e9dadef274376114eb1f012337cabe93871e',
 };
 
 /**

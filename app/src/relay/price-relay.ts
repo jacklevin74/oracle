@@ -20,6 +20,8 @@ export interface PriceData {
   tsla: number | null;
   nvda: number | null;
   mstr: number | null;
+  gold: number | null;
+  silver: number | null;
 }
 
 export interface RelayMessage {
@@ -44,6 +46,8 @@ export class PriceRelay extends EventEmitter {
     TSLA: { price: number; pubMs: number } | null;
     NVDA: { price: number; pubMs: number } | null;
     MSTR: { price: number; pubMs: number } | null;
+    GOLD: { price: number; pubMs: number } | null;
+    SILVER: { price: number; pubMs: number } | null;
   };
 
   private compositeData: {
@@ -55,6 +59,8 @@ export class PriceRelay extends EventEmitter {
     TSLA: { price: number | null; count: number };
     NVDA: { price: number | null; count: number };
     MSTR: { price: number | null; count: number };
+    GOLD: { price: number | null; count: number };
+    SILVER: { price: number | null; count: number };
   };
 
   private heartbeatInterval: NodeJS.Timeout | null = null;
@@ -72,6 +78,8 @@ export class PriceRelay extends EventEmitter {
       TSLA: null,
       NVDA: null,
       MSTR: null,
+      GOLD: null,
+      SILVER: null,
     };
 
     this.compositeData = {
@@ -83,6 +91,8 @@ export class PriceRelay extends EventEmitter {
       TSLA: { price: null, count: 0 },
       NVDA: { price: null, count: 0 },
       MSTR: { price: null, count: 0 },
+      GOLD: { price: null, count: 0 },
+      SILVER: { price: null, count: 0 },
     };
 
     this.pythClient = new PythClient();
@@ -142,6 +152,8 @@ export class PriceRelay extends EventEmitter {
       tsla: this.latest.TSLA?.price || null,
       nvda: this.latest.NVDA?.price || null,
       mstr: this.latest.MSTR?.price || null,
+      gold: this.latest.GOLD?.price || null,
+      silver: this.latest.SILVER?.price || null,
     };
 
     const message: RelayMessage = {
@@ -219,6 +231,8 @@ export class PriceRelay extends EventEmitter {
       tsla: this.latest.TSLA?.price || null,
       nvda: this.latest.NVDA?.price || null,
       mstr: this.latest.MSTR?.price || null,
+      gold: this.latest.GOLD?.price || null,
+      silver: this.latest.SILVER?.price || null,
     };
   }
 

@@ -168,6 +168,8 @@ export class TransactionBuilder {
     tslaPrice: number,
     nvdaPrice: number,
     mstrPrice: number,
+    goldPrice: number,
+    silverPrice: number,
     clientTsMs: number,
     signer: PublicKey
   ): TransactionInstruction {
@@ -182,6 +184,8 @@ export class TransactionBuilder {
       encodeI64(tslaPrice),
       encodeI64(nvdaPrice),
       encodeI64(mstrPrice),
+      encodeI64(goldPrice),
+      encodeI64(silverPrice),
       encodeI64(clientTsMs),
     ]);
 
@@ -242,6 +246,8 @@ export class TransactionBuilder {
     tslaPrice: number,
     nvdaPrice: number,
     mstrPrice: number,
+    goldPrice: number,
+    silverPrice: number,
     clientTsMs: number
   ): Promise<string> {
     // Ensure fresh blockhash
@@ -260,6 +266,8 @@ export class TransactionBuilder {
           tslaPrice,
           nvdaPrice,
           mstrPrice,
+          goldPrice,
+          silverPrice,
           clientTsMs,
           payer.publicKey
         )

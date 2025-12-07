@@ -19,6 +19,8 @@ pub enum Asset {
     Tsla = 6,
     Nvda = 7,
     Mstr = 8,
+    Gold = 9,
+    Silver = 10,
 }
 
 #[program]
@@ -38,6 +40,8 @@ pub mod oracle {
         s.tsla = Triplet::default();
         s.nvda = Triplet::default();
         s.mstr = Triplet::default();
+        s.gold = Triplet::default();
+        s.silver = Triplet::default();
         Ok(())
     }
 
@@ -69,6 +73,8 @@ pub mod oracle {
             x if x == Asset::Tsla as u8 => &mut s.tsla,
             x if x == Asset::Nvda as u8 => &mut s.nvda,
             x if x == Asset::Mstr as u8 => &mut s.mstr,
+            x if x == Asset::Gold as u8 => &mut s.gold,
+            x if x == Asset::Silver as u8 => &mut s.silver,
             _ => return err!(OracleError::BadAsset),
         };
 
@@ -103,6 +109,8 @@ pub mod oracle {
         tsla_price: i64,
         nvda_price: i64,
         mstr_price: i64,
+        gold_price: i64,
+        silver_price: i64,
         client_ts_ms: i64,
     ) -> Result<()> {
         let signer = ctx.accounts.signer.key();
@@ -119,7 +127,7 @@ pub mod oracle {
         let s = &mut ctx.accounts.state;
         let slot = Clock::get()?.slot;
 
-        // Update all 8 assets in one instruction
+        // Update all 10 assets in one instruction
         match index {
             1 => {
                 s.btc.param1 = btc_price;
@@ -138,6 +146,10 @@ pub mod oracle {
                 s.nvda.ts1 = client_ts_ms;
                 s.mstr.param1 = mstr_price;
                 s.mstr.ts1 = client_ts_ms;
+                s.gold.param1 = gold_price;
+                s.gold.ts1 = client_ts_ms;
+                s.silver.param1 = silver_price;
+                s.silver.ts1 = client_ts_ms;
             }
             2 => {
                 s.btc.param2 = btc_price;
@@ -156,6 +168,10 @@ pub mod oracle {
                 s.nvda.ts2 = client_ts_ms;
                 s.mstr.param2 = mstr_price;
                 s.mstr.ts2 = client_ts_ms;
+                s.gold.param2 = gold_price;
+                s.gold.ts2 = client_ts_ms;
+                s.silver.param2 = silver_price;
+                s.silver.ts2 = client_ts_ms;
             }
             3 => {
                 s.btc.param3 = btc_price;
@@ -174,6 +190,10 @@ pub mod oracle {
                 s.nvda.ts3 = client_ts_ms;
                 s.mstr.param3 = mstr_price;
                 s.mstr.ts3 = client_ts_ms;
+                s.gold.param3 = gold_price;
+                s.gold.ts3 = client_ts_ms;
+                s.silver.param3 = silver_price;
+                s.silver.ts3 = client_ts_ms;
             }
             4 => {
                 s.btc.param4 = btc_price;
@@ -192,6 +212,10 @@ pub mod oracle {
                 s.nvda.ts4 = client_ts_ms;
                 s.mstr.param4 = mstr_price;
                 s.mstr.ts4 = client_ts_ms;
+                s.gold.param4 = gold_price;
+                s.gold.ts4 = client_ts_ms;
+                s.silver.param4 = silver_price;
+                s.silver.ts4 = client_ts_ms;
             }
             _ => unreachable!(),
         }
@@ -261,6 +285,22 @@ pub mod oracle {
             client_ts_ms,
             slot,
         });
+        emit!(PriceUpdated {
+            asset: Asset::Gold as u8,
+            index,
+            price: gold_price,
+            decimals: s.decimals,
+            client_ts_ms,
+            slot,
+        });
+        emit!(PriceUpdated {
+            asset: Asset::Silver as u8,
+            index,
+            price: silver_price,
+            decimals: s.decimals,
+            client_ts_ms,
+            slot,
+        });
 
         Ok(())
     }
@@ -302,11 +342,13 @@ pub struct State {
     pub tsla: Triplet,            // 64
     pub nvda: Triplet,            // 64
     pub mstr: Triplet,            // 64
+    pub gold: Triplet,            // 64
+    pub silver: Triplet,          // 64
     pub decimals: u8,             // 1
     pub bump: u8,                 // 1
 }
 impl State {
-    pub const SIZE: usize = 32 + (Triplet::SIZE * 8) + 1 + 1; // 32 + 512 + 2 = 546
+    pub const SIZE: usize = 32 + (Triplet::SIZE * 10) + 1 + 1; // 32 + 640 + 2 = 674
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, Default)]
@@ -373,7 +415,7 @@ pub struct CloseState<'info> {
 pub enum OracleError {
     #[msg("Unauthorized (admin)")]
     Unauthorized,
-    #[msg("Bad asset (must be 1=BTC,2=ETH,3=SOL,4=HYPE,5=ZEC,6=TSLA,7=NVDA,8=MSTR)")]
+    #[msg("Bad asset (must be 1=BTC,2=ETH,3=SOL,4=HYPE,5=ZEC,6=TSLA,7=NVDA,8=MSTR,9=GOLD,10=SILVER)")]
     BadAsset,
     #[msg("Index must be 1, 2, 3, or 4")]
     BadIndex,

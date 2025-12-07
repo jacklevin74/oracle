@@ -16,12 +16,14 @@ export enum Asset {
   TSLA = 6,
   NVDA = 7,
   MSTR = 8,
+  GOLD = 9,
+  SILVER = 10,
 }
 
 /**
  * Asset symbol names
  */
-export type AssetSymbol = 'BTC' | 'ETH' | 'SOL' | 'HYPE' | 'ZEC' | 'TSLA' | 'NVDA' | 'MSTR';
+export type AssetSymbol = 'BTC' | 'ETH' | 'SOL' | 'HYPE' | 'ZEC' | 'TSLA' | 'NVDA' | 'MSTR' | 'GOLD' | 'SILVER';
 
 /**
  * Price data with timestamp
@@ -43,6 +45,8 @@ export interface LatestPrices {
   TSLA: PriceData | null;
   NVDA: PriceData | null;
   MSTR: PriceData | null;
+  GOLD: PriceData | null;
+  SILVER: PriceData | null;
 }
 
 /**
@@ -57,6 +61,8 @@ export interface SentPriceTracking {
   TSLA: number;
   NVDA: number;
   MSTR: number;
+  GOLD: number;
+  SILVER: number;
 }
 
 /**
@@ -71,6 +77,8 @@ export interface LastSentI64 {
   TSLA: number | null;
   NVDA: number | null;
   MSTR: number | null;
+  GOLD: number | null;
+  SILVER: number | null;
 }
 
 /**
@@ -111,6 +119,8 @@ export interface CompositeTrackingMap {
   TSLA: CompositeTracking;
   NVDA: CompositeTracking;
   MSTR: CompositeTracking;
+  GOLD: CompositeTracking;
+  SILVER: CompositeTracking;
 }
 
 /**
@@ -199,6 +209,8 @@ export interface PythFeeds {
   TSLA: string;
   NVDA: string;
   MSTR: string;
+  GOLD: string;
+  SILVER: string;
 }
 
 /**

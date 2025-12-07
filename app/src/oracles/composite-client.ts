@@ -135,4 +135,6 @@ export const COMPOSITE_CONFIGS: Record<AssetSymbol, CompositeOracleConfig> = {
   TSLA: {},
   NVDA: {},
   MSTR: {},
+  GOLD: {},
+  SILVER: {},
 };

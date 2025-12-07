@@ -24,6 +24,8 @@ const prices = {
   TSLA: { price: null, timestamp: null, source: null },
   NVDA: { price: null, timestamp: null, source: null },
   MSTR: { price: null, timestamp: null, source: null },
+  GOLD: { price: null, timestamp: null, source: null },
+  SILVER: { price: null, timestamp: null, source: null },
 };
 
 // Initialize clients
@@ -222,6 +224,10 @@ const HTML = `
       transition: all 0.3s ease;
     }
 
+    .card-wide {
+      grid-column: span 2;
+    }
+
     .card:hover {
       border-color: #00ffff;
       box-shadow: 0 0 20px rgba(0, 255, 255, 0.2);
@@ -358,6 +364,28 @@ const HTML = `
     </div>
 
     <div class="section">
+      <div class="section-title">▶ COMMODITIES</div>
+      <div class="grid">
+        <div class="card card-wide">
+          <div class="card-header">
+            <span class="symbol">GOLD</span>
+            <span class="badge stock">COMMODITY</span>
+          </div>
+          <div class="price" id="price-GOLD">–</div>
+          <div class="details" id="sub-GOLD"></div>
+        </div>
+        <div class="card card-wide">
+          <div class="card-header">
+            <span class="symbol">SILVER</span>
+            <span class="badge stock">COMMODITY</span>
+          </div>
+          <div class="price" id="price-SILVER">–</div>
+          <div class="details" id="sub-SILVER"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
       <div class="section-title">▶ EQUITIES</div>
       <div class="grid">
         <div class="card">
@@ -386,6 +414,7 @@ const HTML = `
         </div>
       </div>
     </div>
+
   </div>
 
   <script>
