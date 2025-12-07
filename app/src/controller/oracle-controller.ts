@@ -35,6 +35,9 @@ export interface PriceData {
   sol: number | null;
   hype: number | null;
   zec: number | null;
+  tsla: number | null;
+  nvda: number | null;
+  mstr: number | null;
 }
 
 /**
@@ -53,6 +56,9 @@ export class OracleController extends EventEmitter {
     SOL: null,
     HYPE: null,
     ZEC: null,
+    TSLA: null,
+    NVDA: null,
+    MSTR: null,
   };
 
   private lastSentI64: Record<string, number | null> = {
@@ -61,6 +67,9 @@ export class OracleController extends EventEmitter {
     SOL: null,
     HYPE: null,
     ZEC: null,
+    TSLA: null,
+    NVDA: null,
+    MSTR: null,
   };
 
   private updateTimer: NodeJS.Timeout | null = null;
@@ -254,6 +263,9 @@ export class OracleController extends EventEmitter {
       const solI64 = updates.find(u => u.asset === 'SOL')?.i64 || this.lastSentI64.SOL || 0;
       const hypeI64 = updates.find(u => u.asset === 'HYPE')?.i64 || this.lastSentI64.HYPE || 0;
       const zecI64 = updates.find(u => u.asset === 'ZEC')?.i64 || this.lastSentI64.ZEC || 0;
+      const tslaI64 = updates.find(u => u.asset === 'TSLA')?.i64 || this.lastSentI64.TSLA || 0;
+      const nvdaI64 = updates.find(u => u.asset === 'NVDA')?.i64 || this.lastSentI64.NVDA || 0;
+      const mstrI64 = updates.find(u => u.asset === 'MSTR')?.i64 || this.lastSentI64.MSTR || 0;
 
       const clientTsMs = Date.now();
 
@@ -266,6 +278,9 @@ export class OracleController extends EventEmitter {
         solI64,
         hypeI64,
         zecI64,
+        tslaI64,
+        nvdaI64,
+        mstrI64,
         clientTsMs
       );
 

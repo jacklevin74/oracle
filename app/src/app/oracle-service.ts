@@ -78,6 +78,9 @@ export class OracleService extends EventEmitter {
       SOL: null,
       HYPE: null,
       ZEC: null,
+      TSLA: null,
+      NVDA: null,
+      MSTR: null,
     };
 
     this.sentUpTo = {
@@ -86,6 +89,9 @@ export class OracleService extends EventEmitter {
       SOL: 0,
       HYPE: 0,
       ZEC: 0,
+      TSLA: 0,
+      NVDA: 0,
+      MSTR: 0,
     };
 
     this.lastSentI64 = {
@@ -94,6 +100,9 @@ export class OracleService extends EventEmitter {
       SOL: null,
       HYPE: null,
       ZEC: null,
+      TSLA: null,
+      NVDA: null,
+      MSTR: null,
     };
 
     this.compositeData = {
@@ -102,6 +111,9 @@ export class OracleService extends EventEmitter {
       SOL: { price: null, count: 0, sources: [] },
       HYPE: { price: null, count: 0, sources: [] },
       ZEC: { price: null, count: 0, sources: [] },
+      TSLA: { price: null, count: 0, sources: [] },
+      NVDA: { price: null, count: 0, sources: [] },
+      MSTR: { price: null, count: 0, sources: [] },
     };
 
     // Initialize clients
@@ -421,18 +433,24 @@ export class OracleService extends EventEmitter {
 
     const t0 = Date.now();
 
-    // Collect prices for all 5 assets
+    // Collect prices for all 8 assets
     const btcData = fresh.find((f) => f.sym === 'BTC');
     const ethData = fresh.find((f) => f.sym === 'ETH');
     const solData = fresh.find((f) => f.sym === 'SOL');
     const hypeData = fresh.find((f) => f.sym === 'HYPE');
     const zecData = fresh.find((f) => f.sym === 'ZEC');
+    const tslaData = fresh.find((f) => f.sym === 'TSLA');
+    const nvdaData = fresh.find((f) => f.sym === 'NVDA');
+    const mstrData = fresh.find((f) => f.sym === 'MSTR');
 
     const btcPrice = btcData ? btcData.candI64 : this.lastSentI64.BTC || 0;
     const ethPrice = ethData ? ethData.candI64 : this.lastSentI64.ETH || 0;
     const solPrice = solData ? solData.candI64 : this.lastSentI64.SOL || 0;
     const hypePrice = hypeData ? hypeData.candI64 : this.lastSentI64.HYPE || 0;
     const zecPrice = zecData ? zecData.candI64 : this.lastSentI64.ZEC || 0;
+    const tslaPrice = tslaData ? tslaData.candI64 : this.lastSentI64.TSLA || 0;
+    const nvdaPrice = nvdaData ? nvdaData.candI64 : this.lastSentI64.NVDA || 0;
+    const mstrPrice = mstrData ? mstrData.candI64 : this.lastSentI64.MSTR || 0;
 
     const tRecv = Date.now();
 
@@ -445,6 +463,9 @@ export class OracleService extends EventEmitter {
         solPrice,
         hypePrice,
         zecPrice,
+        tslaPrice,
+        nvdaPrice,
+        mstrPrice,
         clientTsMs
       );
 

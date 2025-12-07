@@ -58,6 +58,9 @@ export const ASSETS: Record<string, Asset> = {
   SOL: Asset.SOL,
   HYPE: Asset.HYPE,
   ZEC: Asset.ZEC,
+  TSLA: Asset.TSLA,
+  NVDA: Asset.NVDA,
+  MSTR: Asset.MSTR,
 };
 
 /**
@@ -69,6 +72,9 @@ export const PYTH_FEEDS: PythFeeds = {
   ETH: '0xff61491a931112ddf1bd8147cd1b641375f79f5825126d665480874634fd0ace',
   SOL: '0xef0d8b6fda2ceba41da15d4095d1da392a0d2f8ed0c6c7bc0f4cfac8c280b56d',
   ZEC: '0xbe9b59d178f0d6a97ab4c343bff2aa69caa1eaae3e9048a65788c529b125bb24',
+  TSLA: '0x16dad506d7db8da01c87581c87ca897a012a153557d4d578c3b9c9e1bc0632f1',
+  NVDA: '0xb1073854ed24cbc755dc527418f52b7d271f6cc967bbf8d8129112b18860a593',
+  MSTR: '0xe1e80251e5f5184f2195008382538e847fafc36f751896889dd3d1b1f6111f09',
 };
 
 /**

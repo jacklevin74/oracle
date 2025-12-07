@@ -1,6 +1,10 @@
 [workspace]
 members = [
-    "programs/*"
+    "programs/oracle"
+]
+exclude = [
+    "programs/oracle-v3",
+    "programs/oracle-v3.bak"
 ]
 resolver = "2"
 

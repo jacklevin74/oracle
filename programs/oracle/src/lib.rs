@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 use std::str::FromStr;
 
-declare_id!("LuS6XnQ3qNXqNQvAJ3akXnEJRBv9XNoUricjMgTyCxX");
+declare_id!("CcgTMiYkgVfz7cAGkD6835BqfycG5N5Y4aPPHYW1EvKx");
 
 // Hard-coded per-parameter updaters (mainnet relays)
 const PARAM1_UPDATER: &str = "CGLezzdUpYmxiq3g5xdXxry8SWqwQbSxFJsdqfM13ro9"; // mn_relay1.json
@@ -16,6 +16,9 @@ pub enum Asset {
     Sol = 3,
     Hype = 4,
     Zec = 5,
+    Tsla = 6,
+    Nvda = 7,
+    Mstr = 8,
 }
 
 #[program]
@@ -32,6 +35,9 @@ pub mod oracle {
         s.sol = Triplet::default();
         s.hype = Triplet::default();
         s.zec = Triplet::default();
+        s.tsla = Triplet::default();
+        s.nvda = Triplet::default();
+        s.mstr = Triplet::default();
         Ok(())
     }
 
@@ -60,6 +66,9 @@ pub mod oracle {
             x if x == Asset::Sol as u8 => &mut s.sol,
             x if x == Asset::Hype as u8 => &mut s.hype,
             x if x == Asset::Zec as u8 => &mut s.zec,
+            x if x == Asset::Tsla as u8 => &mut s.tsla,
+            x if x == Asset::Nvda as u8 => &mut s.nvda,
+            x if x == Asset::Mstr as u8 => &mut s.mstr,
             _ => return err!(OracleError::BadAsset),
         };
 
@@ -91,6 +100,9 @@ pub mod oracle {
         sol_price: i64,
         hype_price: i64,
         zec_price: i64,
+        tsla_price: i64,
+        nvda_price: i64,
+        mstr_price: i64,
         client_ts_ms: i64,
     ) -> Result<()> {
         let signer = ctx.accounts.signer.key();
@@ -107,7 +119,7 @@ pub mod oracle {
         let s = &mut ctx.accounts.state;
         let slot = Clock::get()?.slot;
 
-        // Update all 5 assets in one instruction
+        // Update all 8 assets in one instruction
         match index {
             1 => {
                 s.btc.param1 = btc_price;
@@ -120,6 +132,12 @@ pub mod oracle {
                 s.hype.ts1 = client_ts_ms;
                 s.zec.param1 = zec_price;
                 s.zec.ts1 = client_ts_ms;
+                s.tsla.param1 = tsla_price;
+                s.tsla.ts1 = client_ts_ms;
+                s.nvda.param1 = nvda_price;
+                s.nvda.ts1 = client_ts_ms;
+                s.mstr.param1 = mstr_price;
+                s.mstr.ts1 = client_ts_ms;
             }
             2 => {
                 s.btc.param2 = btc_price;
@@ -132,6 +150,12 @@ pub mod oracle {
                 s.hype.ts2 = client_ts_ms;
                 s.zec.param2 = zec_price;
                 s.zec.ts2 = client_ts_ms;
+                s.tsla.param2 = tsla_price;
+                s.tsla.ts2 = client_ts_ms;
+                s.nvda.param2 = nvda_price;
+                s.nvda.ts2 = client_ts_ms;
+                s.mstr.param2 = mstr_price;
+                s.mstr.ts2 = client_ts_ms;
             }
             3 => {
                 s.btc.param3 = btc_price;
@@ -144,6 +168,12 @@ pub mod oracle {
                 s.hype.ts3 = client_ts_ms;
                 s.zec.param3 = zec_price;
                 s.zec.ts3 = client_ts_ms;
+                s.tsla.param3 = tsla_price;
+                s.tsla.ts3 = client_ts_ms;
+                s.nvda.param3 = nvda_price;
+                s.nvda.ts3 = client_ts_ms;
+                s.mstr.param3 = mstr_price;
+                s.mstr.ts3 = client_ts_ms;
             }
             4 => {
                 s.btc.param4 = btc_price;
@@ -156,6 +186,12 @@ pub mod oracle {
                 s.hype.ts4 = client_ts_ms;
                 s.zec.param4 = zec_price;
                 s.zec.ts4 = client_ts_ms;
+                s.tsla.param4 = tsla_price;
+                s.tsla.ts4 = client_ts_ms;
+                s.nvda.param4 = nvda_price;
+                s.nvda.ts4 = client_ts_ms;
+                s.mstr.param4 = mstr_price;
+                s.mstr.ts4 = client_ts_ms;
             }
             _ => unreachable!(),
         }
@@ -201,6 +237,30 @@ pub mod oracle {
             client_ts_ms,
             slot,
         });
+        emit!(PriceUpdated {
+            asset: Asset::Tsla as u8,
+            index,
+            price: tsla_price,
+            decimals: s.decimals,
+            client_ts_ms,
+            slot,
+        });
+        emit!(PriceUpdated {
+            asset: Asset::Nvda as u8,
+            index,
+            price: nvda_price,
+            decimals: s.decimals,
+            client_ts_ms,
+            slot,
+        });
+        emit!(PriceUpdated {
+            asset: Asset::Mstr as u8,
+            index,
+            price: mstr_price,
+            decimals: s.decimals,
+            client_ts_ms,
+            slot,
+        });
 
         Ok(())
     }
@@ -239,11 +299,14 @@ pub struct State {
     pub sol: Triplet,             // 64
     pub hype: Triplet,            // 64
     pub zec: Triplet,             // 64
+    pub tsla: Triplet,            // 64
+    pub nvda: Triplet,            // 64
+    pub mstr: Triplet,            // 64
     pub decimals: u8,             // 1
     pub bump: u8,                 // 1
 }
 impl State {
-    pub const SIZE: usize = 32 + (Triplet::SIZE * 5) + 1 + 1; // 32 + 320 + 2 = 354
+    pub const SIZE: usize = 32 + (Triplet::SIZE * 8) + 1 + 1; // 32 + 512 + 2 = 546
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, Default)]
@@ -310,7 +373,7 @@ pub struct CloseState<'info> {
 pub enum OracleError {
     #[msg("Unauthorized (admin)")]
     Unauthorized,
-    #[msg("Bad asset (must be 1=BTC,2=ETH,3=SOL,4=HYPE,5=ZEC)")]
+    #[msg("Bad asset (must be 1=BTC,2=ETH,3=SOL,4=HYPE,5=ZEC,6=TSLA,7=NVDA,8=MSTR)")]
     BadAsset,
     #[msg("Index must be 1, 2, 3, or 4")]
     BadIndex,

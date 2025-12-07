@@ -13,12 +13,15 @@ export enum Asset {
   SOL = 3,
   HYPE = 4,
   ZEC = 5,
+  TSLA = 6,
+  NVDA = 7,
+  MSTR = 8,
 }
 
 /**
  * Asset symbol names
  */
-export type AssetSymbol = 'BTC' | 'ETH' | 'SOL' | 'HYPE' | 'ZEC';
+export type AssetSymbol = 'BTC' | 'ETH' | 'SOL' | 'HYPE' | 'ZEC' | 'TSLA' | 'NVDA' | 'MSTR';
 
 /**
  * Price data with timestamp
@@ -37,6 +40,9 @@ export interface LatestPrices {
   SOL: PriceData | null;
   HYPE: PriceData | null;
   ZEC: PriceData | null;
+  TSLA: PriceData | null;
+  NVDA: PriceData | null;
+  MSTR: PriceData | null;
 }
 
 /**
@@ -48,6 +54,9 @@ export interface SentPriceTracking {
   SOL: number;
   HYPE: number;
   ZEC: number;
+  TSLA: number;
+  NVDA: number;
+  MSTR: number;
 }
 
 /**
@@ -59,6 +68,9 @@ export interface LastSentI64 {
   SOL: number | null;
   HYPE: number | null;
   ZEC: number | null;
+  TSLA: number | null;
+  NVDA: number | null;
+  MSTR: number | null;
 }
 
 /**
@@ -96,6 +108,9 @@ export interface CompositeTrackingMap {
   SOL: CompositeTracking;
   HYPE: CompositeTracking;
   ZEC: CompositeTracking;
+  TSLA: CompositeTracking;
+  NVDA: CompositeTracking;
+  MSTR: CompositeTracking;
 }
 
 /**
@@ -181,6 +196,9 @@ export interface PythFeeds {
   ETH: string;
   SOL: string;
   ZEC: string;
+  TSLA: string;
+  NVDA: string;
+  MSTR: string;
 }
 
 /**

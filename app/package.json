@@ -29,7 +29,12 @@
     "test:live": "ts-node test-live.ts",
     "test:v3": "npm run test:jupiter && npm run test:aggregation && npm run test:quality && npm run test:registry",
     "test:e2e": "ts-node test-e2e.ts",
-    "dashboard": "ts-node dashboard-server.ts"
+    "dashboard": "ts-node dashboard-server.ts",
+    "dashboard:blockchain": "node server.mjs",
+    "dashboard:relay": "node relay-dashboard.mjs",
+    "controller:dry-run": "ANCHOR_PROVIDER_URL=https://rpc.mainnet.x1.xyz node dist/controller/controller-process.js --dry-run --foreground",
+    "controller:dry-run-verbose": "ANCHOR_PROVIDER_URL=https://rpc.mainnet.x1.xyz node dist/controller/controller-process.js --dry-run --foreground --verbose",
+    "controller:start": "ANCHOR_PROVIDER_URL=https://rpc.mainnet.x1.xyz node dist/controller/controller-process.js --prompt"
   },
   "keywords": [
     "solana",

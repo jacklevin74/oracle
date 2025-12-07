@@ -131,4 +131,8 @@ export const COMPOSITE_CONFIGS: Record<AssetSymbol, CompositeOracleConfig> = {
     symbolMexc: 'ZECUSDT',
     coinHyperliquid: 'ZEC',
   },
+  // Stock assets - not available on crypto exchanges, only use Pyth feeds
+  TSLA: {},
+  NVDA: {},
+  MSTR: {},
 };

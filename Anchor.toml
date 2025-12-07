@@ -6,8 +6,7 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
-oracle = "LuS6XnQ3qNXqNQvAJ3akXnEJRBv9XNoUricjMgTyCxX"
-oracle_v3 = "8gLZV8k3R6JrAs5BZzyyZQikjEfqvJjAz8PxbiYmz2Kb"
+oracle = "CcgTMiYkgVfz7cAGkD6835BqfycG5N5Y4aPPHYW1EvKx"
 
 [registry]
 url = "https://api.apr.dev"

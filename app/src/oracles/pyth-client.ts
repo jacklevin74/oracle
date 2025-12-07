@@ -83,7 +83,8 @@ export class PythClient extends EventEmitter {
 
     await this.priceService.subscribePriceFeedUpdates(this.priceIds, (priceFeed) => {
       try {
-        const p = priceFeed.getPriceNoOlderThan(120);
+        // TEMPORARY: Accept stale prices for testing stock feeds (markets closed on weekends)
+        const p = priceFeed.getPriceUnchecked();
 
         if (!p) {
           return;

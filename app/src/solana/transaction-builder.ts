@@ -165,6 +165,9 @@ export class TransactionBuilder {
     solPrice: number,
     hypePrice: number,
     zecPrice: number,
+    tslaPrice: number,
+    nvdaPrice: number,
+    mstrPrice: number,
     clientTsMs: number,
     signer: PublicKey
   ): TransactionInstruction {
@@ -176,6 +179,9 @@ export class TransactionBuilder {
       encodeI64(solPrice),
       encodeI64(hypePrice),
       encodeI64(zecPrice),
+      encodeI64(tslaPrice),
+      encodeI64(nvdaPrice),
+      encodeI64(mstrPrice),
       encodeI64(clientTsMs),
     ]);
 
@@ -233,6 +239,9 @@ export class TransactionBuilder {
     solPrice: number,
     hypePrice: number,
     zecPrice: number,
+    tslaPrice: number,
+    nvdaPrice: number,
+    mstrPrice: number,
     clientTsMs: number
   ): Promise<string> {
     // Ensure fresh blockhash
@@ -248,6 +257,9 @@ export class TransactionBuilder {
           solPrice,
           hypePrice,
           zecPrice,
+          tslaPrice,
+          nvdaPrice,
+          mstrPrice,
           clientTsMs,
           payer.publicKey
         )

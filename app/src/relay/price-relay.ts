@@ -9,6 +9,7 @@
 import { EventEmitter } from 'events';
 import { PythClient } from '../oracles/pyth-client';
 import { CompositeClient, COMPOSITE_CONFIGS } from '../oracles/composite-client';
+import { AssetSymbol } from '../types';
 
 export interface PriceData {
   btc: number | null;
@@ -16,6 +17,9 @@ export interface PriceData {
   sol: number | null;
   hype: number | null;
   zec: number | null;
+  tsla: number | null;
+  nvda: number | null;
+  mstr: number | null;
 }
 
 export interface RelayMessage {
@@ -37,6 +41,9 @@ export class PriceRelay extends EventEmitter {
     SOL: { price: number; pubMs: number } | null;
     HYPE: { price: number; pubMs: number } | null;
     ZEC: { price: number; pubMs: number } | null;
+    TSLA: { price: number; pubMs: number } | null;
+    NVDA: { price: number; pubMs: number } | null;
+    MSTR: { price: number; pubMs: number } | null;
   };
 
   private compositeData: {
@@ -45,6 +52,9 @@ export class PriceRelay extends EventEmitter {
     SOL: { price: number | null; count: number };
     HYPE: { price: number | null; count: number };
     ZEC: { price: number | null; count: number };
+    TSLA: { price: number | null; count: number };
+    NVDA: { price: number | null; count: number };
+    MSTR: { price: number | null; count: number };
   };
 
   private heartbeatInterval: NodeJS.Timeout | null = null;
@@ -59,6 +69,9 @@ export class PriceRelay extends EventEmitter {
       SOL: null,
       HYPE: null,
       ZEC: null,
+      TSLA: null,
+      NVDA: null,
+      MSTR: null,
     };
 
     this.compositeData = {
@@ -67,6 +80,9 @@ export class PriceRelay extends EventEmitter {
       SOL: { price: null, count: 0 },
       HYPE: { price: null, count: 0 },
       ZEC: { price: null, count: 0 },
+      TSLA: { price: null, count: 0 },
+      NVDA: { price: null, count: 0 },
+      MSTR: { price: null, count: 0 },
     };
 
     this.pythClient = new PythClient();
@@ -80,7 +96,7 @@ export class PriceRelay extends EventEmitter {
    * Setup Pyth price handlers
    */
   private setupPythHandlers() {
-    this.pythClient.on('price', (symbol: 'BTC' | 'ETH' | 'SOL', priceData) => {
+    this.pythClient.on('price', (symbol: AssetSymbol, priceData) => {
       this.latest[symbol] = priceData;
       this.checkAndEmitUpdate();
     });
@@ -90,7 +106,7 @@ export class PriceRelay extends EventEmitter {
    * Setup composite oracle handlers
    */
   private setupCompositeHandlers() {
-    this.compositeClient.on('price', (symbol: 'BTC' | 'ETH' | 'SOL' | 'HYPE' | 'ZEC', data) => {
+    this.compositeClient.on('price', (symbol: AssetSymbol, data) => {
       this.compositeData[symbol] = {
         price: data.composite,
         count: data.count,
@@ -123,6 +139,9 @@ export class PriceRelay extends EventEmitter {
       sol: this.latest.SOL?.price || null,
       hype: this.latest.HYPE?.price || null,
       zec: this.latest.ZEC?.price || null,
+      tsla: this.latest.TSLA?.price || null,
+      nvda: this.latest.NVDA?.price || null,
+      mstr: this.latest.MSTR?.price || null,
     };
 
     const message: RelayMessage = {
@@ -146,7 +165,7 @@ export class PriceRelay extends EventEmitter {
 
     // Start Pyth feeds
     await this.pythClient.subscribe();
-    console.log('[Relay] ✓ Connected to Pyth Network (BTC, ETH, SOL)');
+    console.log('[Relay] ✓ Connected to Pyth Network (BTC, ETH, SOL, ZEC, TSLA, NVDA, MSTR)');
 
     // Start composite oracles
     for (const symbol of Object.keys(COMPOSITE_CONFIGS) as Array<keyof typeof COMPOSITE_CONFIGS>) {
@@ -197,6 +216,9 @@ export class PriceRelay extends EventEmitter {
       sol: this.latest.SOL?.price || null,
       hype: this.latest.HYPE?.price || null,
       zec: this.latest.ZEC?.price || null,
+      tsla: this.latest.TSLA?.price || null,
+      nvda: this.latest.NVDA?.price || null,
+      mstr: this.latest.MSTR?.price || null,
     };
   }
 

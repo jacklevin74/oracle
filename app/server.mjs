@@ -31,10 +31,13 @@ const OFF = {
   sol: 32 + TRIP.SIZE * 2,
   hype: 32 + TRIP.SIZE * 3,
   zec: 32 + TRIP.SIZE * 4,
-  decimals: 32 + TRIP.SIZE * 5,
-  bump: 32 + TRIP.SIZE * 5 + 1,
+  tsla: 32 + TRIP.SIZE * 5,
+  nvda: 32 + TRIP.SIZE * 6,
+  mstr: 32 + TRIP.SIZE * 7,
+  decimals: 32 + TRIP.SIZE * 8,
+  bump: 32 + TRIP.SIZE * 8 + 1,
 };
-const PAYLOAD_MIN = 32 + TRIP.SIZE * 5 + 2;
+const PAYLOAD_MIN = 32 + TRIP.SIZE * 8 + 2;
 
 function readI64LE(b, o) {
   const buf = Buffer.isBuffer(b) ? b : Buffer.from(b);
@@ -96,6 +99,9 @@ async function readOracleState() {
   const sol = decodeTrip(payload, OFF.sol);
   const hype = decodeTrip(payload, OFF.hype);
   const zec = decodeTrip(payload, OFF.zec);
+  const tsla = decodeTrip(payload, OFF.tsla);
+  const nvda = decodeTrip(payload, OFF.nvda);
+  const mstr = decodeTrip(payload, OFF.mstr);
 
   const now = Date.now();
   const validMs = (x) => Number.isFinite(Number(x)) && Number(x) > 1e11 && Number(x) < 8.64e15;
@@ -113,7 +119,16 @@ async function readOracleState() {
     { price: toHuman2(t.p4, decimals), ts: safeIso(t.t4), age: ageOf(t.t4) },
   ]);
 
-  const groups = { BTC: mkRows(btc), ETH: mkRows(eth), SOL: mkRows(sol), HYPE: mkRows(hype), ZEC: mkRows(zec) };
+  const groups = {
+    BTC: mkRows(btc),
+    ETH: mkRows(eth),
+    SOL: mkRows(sol),
+    HYPE: mkRows(hype),
+    ZEC: mkRows(zec),
+    TSLA: mkRows(tsla),
+    NVDA: mkRows(nvda),
+    MSTR: mkRows(mstr)
+  };
 
   // Aggregates from current rows (ignore nulls, exclude stale and outliers)
   const agg = {};
@@ -121,7 +136,7 @@ async function readOracleState() {
   const STALE_THRESHOLD_MS = 15000; // 15 seconds
   const OUTLIER_THRESHOLD = 0.10; // 10%
 
-  for (const sym of ["BTC", "ETH", "SOL", "HYPE", "ZEC"]) {
+  for (const sym of ["BTC", "ETH", "SOL", "HYPE", "ZEC", "TSLA", "NVDA", "MSTR"]) {
     const rows = groups[sym];
 
     // Filter out zero/null prices and stale data (older than 15s)
@@ -294,6 +309,21 @@ const HTML = /* html */ `
         <div class="price" id="agg-zec">–</div>
         <div class="sub" id="sub-zec"></div>
       </div>
+      <div class="card">
+        <div class="title">TSLA · aggregated average</div>
+        <div class="price" id="agg-tsla">–</div>
+        <div class="sub" id="sub-tsla"></div>
+      </div>
+      <div class="card">
+        <div class="title">NVDA · aggregated average</div>
+        <div class="price" id="agg-nvda">–</div>
+        <div class="sub" id="sub-nvda"></div>
+      </div>
+      <div class="card">
+        <div class="title">MSTR · aggregated average</div>
+        <div class="price" id="agg-mstr">–</div>
+        <div class="sub" id="sub-mstr"></div>
+      </div>
     </div>
 
     <!-- Collapser -->
@@ -383,11 +413,17 @@ const HTML = /* html */ `
       const oS = document.getElementById('agg-sol');
       const oH = document.getElementById('agg-hype');
       const oZ = document.getElementById('agg-zec');
+      const oT = document.getElementById('agg-tsla');
+      const oN = document.getElementById('agg-nvda');
+      const oM = document.getElementById('agg-mstr');
       const sB = document.getElementById('sub-btc');
       const sE = document.getElementById('sub-eth');
       const sS = document.getElementById('sub-sol');
       const sH = document.getElementById('sub-hype');
       const sZ = document.getElementById('sub-zec');
+      const sT = document.getElementById('sub-tsla');
+      const sN = document.getElementById('sub-nvda');
+      const sM = document.getElementById('sub-mstr');
 
       if(!d.exists){
         meta.textContent = d.message || "state not initialized";
@@ -400,23 +436,33 @@ const HTML = /* html */ `
 
       // TOP aggregates
       const B = d.agg?.BTC, E = d.agg?.ETH, S = d.agg?.SOL, H = d.agg?.HYPE, Z = d.agg?.ZEC;
+      const T = d.agg?.TSLA, N = d.agg?.NVDA, M = d.agg?.MSTR;
       oB.textContent = fmt2(B?.avg ?? null);
       oE.textContent = fmt2(E?.avg ?? null);
       oS.textContent = fmt2(S?.avg ?? null);
       oH.textContent = fmt2(H?.avg ?? null);
       oZ.textContent = fmt2(Z?.avg ?? null);
+      oT.textContent = fmt2(T?.avg ?? null);
+      oN.textContent = fmt2(N?.avg ?? null);
+      oM.textContent = fmt2(M?.avg ?? null);
 
       const tB = d.latestTs?.BTC ?? null;
       const tE = d.latestTs?.ETH ?? null;
       const tS = d.latestTs?.SOL ?? null;
       const tH = d.latestTs?.HYPE ?? null;
       const tZ = d.latestTs?.ZEC ?? null;
+      const tT = d.latestTs?.TSLA ?? null;
+      const tN = d.latestTs?.NVDA ?? null;
+      const tM = d.latestTs?.MSTR ?? null;
 
       const lcB = tB ? fmtLocalClock(tB) : null;
       const lcE = tE ? fmtLocalClock(tE) : null;
       const lcS = tS ? fmtLocalClock(tS) : null;
       const lcH = tH ? fmtLocalClock(tH) : null;
       const lcZ = tZ ? fmtLocalClock(tZ) : null;
+      const lcT = tT ? fmtLocalClock(tT) : null;
+      const lcN = tN ? fmtLocalClock(tN) : null;
+      const lcM = tM ? fmtLocalClock(tM) : null;
 
       sB.textContent = (B && B.count)
         ? \`\${fmtMs(B.ageAvg)} · \${lcB ?? "–"}\`
@@ -433,11 +479,20 @@ const HTML = /* html */ `
       sZ.textContent = (Z && Z.count)
         ? \`\${fmtMs(Z.ageAvg)} · \${lcZ ?? "–"}\`
         : "–";
+      sT.textContent = (T && T.count)
+        ? \`\${fmtMs(T.ageAvg)} · \${lcT ?? "–"}\`
+        : "–";
+      sN.textContent = (N && N.count)
+        ? \`\${fmtMs(N.ageAvg)} · \${lcN ?? "–"}\`
+        : "–";
+      sM.textContent = (M && M.count)
+        ? \`\${fmtMs(M.ageAvg)} · \${lcM ?? "–"}\`
+        : "–";
 
-      stack.style.display = (B?.count || E?.count || S?.count || H?.count || Z?.count) ? "block" : "none";
+      stack.style.display = (B?.count || E?.count || S?.count || H?.count || Z?.count || T?.count || N?.count || M?.count) ? "block" : "none";
 
       // Per-signer tables with LOCAL time column
-      groups.innerHTML = row("BTC", d.groups.BTC) + row("ETH", d.groups.ETH) + row("SOL", d.groups.SOL) + row("HYPE", d.groups.HYPE) + row("ZEC", d.groups.ZEC);
+      groups.innerHTML = row("BTC", d.groups.BTC) + row("ETH", d.groups.ETH) + row("SOL", d.groups.SOL) + row("HYPE", d.groups.HYPE) + row("ZEC", d.groups.ZEC) + row("TSLA", d.groups.TSLA) + row("NVDA", d.groups.NVDA) + row("MSTR", d.groups.MSTR);
     }
 
     // Set up Server-Sent Events connection
