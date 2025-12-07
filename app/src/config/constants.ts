@@ -7,8 +7,10 @@ import { Asset, PythFeeds } from '../types';
 
 /**
  * Program ID on Solana
+ * TESTING: Using test program with 8-asset support
+ * PRODUCTION: LuS6XnQ3qNXqNQvAJ3akXnEJRBv9XNoUricjMgTyCxX
  */
-export const PROGRAM_ID = new PublicKey('LuS6XnQ3qNXqNQvAJ3akXnEJRBv9XNoUricjMgTyCxX');
+export const PROGRAM_ID = new PublicKey('CcgTMiYkgVfz7cAGkD6835BqfycG5N5Y4aPPHYW1EvKx');
 
 /**
  * PDA seed for state account
@@ -16,9 +18,9 @@ export const PROGRAM_ID = new PublicKey('LuS6XnQ3qNXqNQvAJ3akXnEJRBv9XNoUricjMgT
 export const STATE_SEED = Buffer.from('state_v2');
 
 /**
- * Price decimals (6 = fixed-point with 6 decimal places)
+ * Price decimals (8 = fixed-point with 8 decimal places)
  */
-export const DECIMALS = 6;
+export const DECIMALS = 8;
 
 /**
  * Compute unit limit for transactions

@@ -9,7 +9,9 @@ import express from "express";
 import { Connection, PublicKey } from "@solana/web3.js";
 
 /* ----------- CONFIG (must match your on-chain program) ----------- */
-const PROGRAM_ID = new PublicKey("LuS6XnQ3qNXqNQvAJ3akXnEJRBv9XNoUricjMgTyCxX");
+// TESTING: Using test program with 8-asset support (crypto + stocks)
+// PRODUCTION: LuS6XnQ3qNXqNQvAJ3akXnEJRBv9XNoUricjMgTyCxX
+const PROGRAM_ID = new PublicKey("CcgTMiYkgVfz7cAGkD6835BqfycG5N5Y4aPPHYW1EvKx");
 const STATE_SEED = Buffer.from("state_v2"); // PDA seed
 const RPC_URL = process.env.RPC_URL || "https://rpc.mainnet.x1.xyz";
 const HOST = "0.0.0.0";
