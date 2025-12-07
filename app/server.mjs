@@ -242,260 +242,453 @@ app.get("/api/stream", (req, res) => {
   });
 });
 
-/* ----------- HTML (aggregates on TOP with avg ms + latest local time; collapsible details) ----------- */
-const COL_HDRS = ["CGLezz", "FprJrT", "7FZvQQ", "55MyuY"]; // mn_relay1, mn_relay2, mn_relay3, reserved
+/* ----------- HTML with Orbitron UI ----------- */
+const SIGNER_NAMES = ["CGLezz", "FprJrT", "7FZvQQ", "55MyuY"]; // mn_relay1, mn_relay2, mn_relay3, reserved
 const HTML = /* html */ `
-<!doctype html>
-<html>
+<!DOCTYPE html>
+<html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <title>ORACLE CONSOLE</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ORACLE PRICE FEEDS</title>
   <style>
-    :root{--bg:#000;--green:#28ff28;--dim:#00aa00;--grid:#003600;--warn:#ffcc00;--bad:#ff5555}
-    html,body{margin:0;background:var(--bg);color:var(--green);
-      font-family:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;font-size:15px}
-    .wrap{max-width:1080px;margin:20px auto;padding:12px}
-    h1{margin:0 0 8px;letter-spacing:1px}
-    .meta{color:var(--dim);margin-bottom:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .stack{display:flex;flex-direction:column;gap:10px;margin-bottom:10px}
-    .card{border:none;padding:12px;background:rgba(0,255,0,0.03)}
-    .card .title{color:var(--dim);font-size:13px;margin-bottom:6px;letter-spacing:1px}
-    .price{font-size:36px;font-weight:800;letter-spacing:1px;line-height:1}
-    .sub{color:var(--dim);font-size:12px;margin-top:4px}
-    .collapser{display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;margin-top:10px}
-    .tri{display:inline-block;transition:transform 0.15s ease;font-weight:700;}
-    .tri.open{transform:rotate(90deg)}
-    .pane{overflow:hidden;transition:max-height 0.2s ease;border-top:1px solid var(--grid);margin-top:8px}
-    .pane.hide{max-height:0}
-    .pane.show{max-height:2000px}
-    table{border-collapse:collapse;width:100%;table-layout:fixed;border:1px solid var(--grid)}
-    th,td{border-bottom:1px dashed var(--grid);padding:6px 8px;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    th{color:var(--dim)}
-    /* columns: SLOT | SIGNER | LOCAL | ISO | AGE | PRICE */
-    colgroup col.c1{width:70px} colgroup col.c2{width:90px} colgroup col.c3{width:110px}
-    colgroup col.c4{width:220px} colgroup col.c5{width:100px} colgroup col.c6{width:120px}
-    .fresh{color:var(--green)} .ok{color:var(--green)} .stale{color:var(--warn)} .expired{color:var(--bad)} .dim{color:var(--dim)}
-    .group{margin-top:14px}
-    .badge{border:1px solid var(--grid);padding:2px 6px;border-radius:2px}
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;900&display=swap');
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Orbitron', 'Courier New', monospace;
+      background: #000000;
+      background-image:
+        linear-gradient(rgba(0, 255, 255, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 255, 255, 0.03) 1px, transparent 1px);
+      background-size: 50px 50px;
+      color: #00ffff;
+      padding: 20px;
+      line-height: 1.5;
+      font-size: 12px;
+      position: relative;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: radial-gradient(circle at 50% 50%, rgba(0, 255, 255, 0.1) 0%, transparent 50%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      position: relative;
+      z-index: 1;
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 20px;
+      margin-bottom: 20px;
+      background: transparent;
+    }
+
+    .header h1 {
+      font-size: 18px;
+      color: #ffffff;
+      font-weight: 900;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+
+    .header p {
+      font-size: 11px;
+      color: #00ffff;
+      font-weight: 400;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .section {
+      margin-bottom: 30px;
+    }
+
+    .section-title {
+      font-size: 12px;
+      color: #00ffff;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin-bottom: 15px;
+      padding-left: 10px;
+      border-left: 3px solid #00ffff;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 15px;
+    }
+
+    .card {
+      background: rgba(0, 255, 255, 0.03);
+      border: 1px solid rgba(0, 255, 255, 0.2);
+      padding: 20px;
+      position: relative;
+      overflow: hidden;
+      transition: all 0.3s ease;
+      cursor: pointer;
+    }
+
+    .card:hover {
+      border-color: #00ffff;
+      box-shadow: 0 0 20px rgba(0, 255, 255, 0.2);
+    }
+
+    .card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, #00ffff, transparent);
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    .card:hover::before {
+      opacity: 1;
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .symbol {
+      font-size: 14px;
+      font-weight: 700;
+      color: #ffffff;
+      letter-spacing: 2px;
+    }
+
+    .badge {
+      font-size: 9px;
+      padding: 3px 8px;
+      border: 1px solid;
+      font-weight: 700;
+      letter-spacing: 1px;
+    }
+
+    .badge.crypto {
+      border-color: #00ffff;
+      color: #00ffff;
+    }
+
+    .badge.stock {
+      border-color: #ff8800;
+      color: #ff8800;
+    }
+
+    .price {
+      font-size: 32px;
+      font-weight: 900;
+      color: #00ffff;
+      letter-spacing: 1px;
+      margin: 15px 0;
+      text-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
+    }
+
+    .details {
+      font-size: 10px;
+      color: rgba(0, 255, 255, 0.6);
+      line-height: 1.8;
+    }
+
+    .details-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 3px 0;
+    }
+
+    .signer-details {
+      margin-top: 15px;
+      border-top: 1px solid rgba(0, 255, 255, 0.2);
+      padding-top: 15px;
+      max-height: 0;
+      overflow: hidden;
+      opacity: 0;
+      transition: all 0.3s ease;
+    }
+
+    .signer-details.expanded {
+      max-height: 500px;
+      opacity: 1;
+    }
+
+    .signer-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 9px;
+    }
+
+    .signer-table th {
+      text-align: left;
+      padding: 6px 4px;
+      color: rgba(0, 255, 255, 0.6);
+      font-weight: 700;
+      border-bottom: 1px solid rgba(0, 255, 255, 0.2);
+    }
+
+    .signer-table td {
+      padding: 6px 4px;
+      border-bottom: 1px solid rgba(0, 255, 255, 0.1);
+      color: #00ffff;
+    }
+
+    .signer-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    .fresh { color: #00ff00 !important; }
+    .ok { color: #00ffff !important; }
+    .stale { color: #ffcc00 !important; }
+    .expired { color: #ff5555 !important; }
+    .dim { color: rgba(0, 255, 255, 0.4) !important; }
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <h1>∙ ORACLE ∙ CONSOLE ∙</h1>
-    <div id="meta" class="meta"></div>
-
-    <!-- STACKED AGGREGATES (average price + avg age ms + latest local time) -->
-    <div class="stack" id="stack" style="display:none">
-      <div class="card">
-        <div class="title">BTC · aggregated average</div>
-        <div class="price" id="agg-btc">–</div>
-        <div class="sub" id="sub-btc"></div>
-      </div>
-      <div class="card">
-        <div class="title">ETH · aggregated average</div>
-        <div class="price" id="agg-eth">–</div>
-        <div class="sub" id="sub-eth"></div>
-      </div>
-      <div class="card">
-        <div class="title">SOL · aggregated average</div>
-        <div class="price" id="agg-sol">–</div>
-        <div class="sub" id="sub-sol"></div>
-      </div>
-      <div class="card">
-        <div class="title">HYPE · aggregated average</div>
-        <div class="price" id="agg-hype">–</div>
-        <div class="sub" id="sub-hype"></div>
-      </div>
-      <div class="card">
-        <div class="title">ZEC · aggregated average</div>
-        <div class="price" id="agg-zec">–</div>
-        <div class="sub" id="sub-zec"></div>
-      </div>
-      <div class="card">
-        <div class="title">TSLA · aggregated average</div>
-        <div class="price" id="agg-tsla">–</div>
-        <div class="sub" id="sub-tsla"></div>
-      </div>
-      <div class="card">
-        <div class="title">NVDA · aggregated average</div>
-        <div class="price" id="agg-nvda">–</div>
-        <div class="sub" id="sub-nvda"></div>
-      </div>
-      <div class="card">
-        <div class="title">MSTR · aggregated average</div>
-        <div class="price" id="agg-mstr">–</div>
-        <div class="sub" id="sub-mstr"></div>
+  <div class="container">
+    <div class="header">
+      <div>
+        <h1>ORACLE PRICE FEEDS</h1>
+        <p id="meta">Real-time streaming · X1 Oracle Aggregation System</p>
       </div>
     </div>
 
-    <!-- Collapser -->
-    <div class="collapser" id="toggle">
-      <span class="tri" id="tri">▶</span>
-      <span>Show per-signer details</span>
+    <div class="section">
+      <div class="section-title">▶ CRYPTOCURRENCY</div>
+      <div class="grid">
+        <div class="card" onclick="toggleCard('BTC')">
+          <div class="card-header">
+            <span class="symbol">BTC</span>
+            <span class="badge crypto">CRYPTO</span>
+          </div>
+          <div class="price" id="price-BTC">–</div>
+          <div class="details" id="sub-BTC"></div>
+          <div class="signer-details" id="signers-BTC"></div>
+        </div>
+        <div class="card" onclick="toggleCard('ETH')">
+          <div class="card-header">
+            <span class="symbol">ETH</span>
+            <span class="badge crypto">CRYPTO</span>
+          </div>
+          <div class="price" id="price-ETH">–</div>
+          <div class="details" id="sub-ETH"></div>
+          <div class="signer-details" id="signers-ETH"></div>
+        </div>
+        <div class="card" onclick="toggleCard('SOL')">
+          <div class="card-header">
+            <span class="symbol">SOL</span>
+            <span class="badge crypto">CRYPTO</span>
+          </div>
+          <div class="price" id="price-SOL">–</div>
+          <div class="details" id="sub-SOL"></div>
+          <div class="signer-details" id="signers-SOL"></div>
+        </div>
+        <div class="card" onclick="toggleCard('HYPE')">
+          <div class="card-header">
+            <span class="symbol">HYPE</span>
+            <span class="badge crypto">CRYPTO</span>
+          </div>
+          <div class="price" id="price-HYPE">–</div>
+          <div class="details" id="sub-HYPE"></div>
+          <div class="signer-details" id="signers-HYPE"></div>
+        </div>
+        <div class="card" onclick="toggleCard('ZEC')">
+          <div class="card-header">
+            <span class="symbol">ZEC</span>
+            <span class="badge crypto">CRYPTO</span>
+          </div>
+          <div class="price" id="price-ZEC">–</div>
+          <div class="details" id="sub-ZEC"></div>
+          <div class="signer-details" id="signers-ZEC"></div>
+        </div>
+      </div>
     </div>
 
-    <!-- Collapsible per-signer pane -->
-    <div class="pane hide" id="pane">
-      <div id="groups"></div>
+    <div class="section">
+      <div class="section-title">▶ EQUITIES</div>
+      <div class="grid">
+        <div class="card" onclick="toggleCard('TSLA')">
+          <div class="card-header">
+            <span class="symbol">TSLA</span>
+            <span class="badge stock">STOCK</span>
+          </div>
+          <div class="price" id="price-TSLA">–</div>
+          <div class="details" id="sub-TSLA"></div>
+          <div class="signer-details" id="signers-TSLA"></div>
+        </div>
+        <div class="card" onclick="toggleCard('NVDA')">
+          <div class="card-header">
+            <span class="symbol">NVDA</span>
+            <span class="badge stock">STOCK</span>
+          </div>
+          <div class="price" id="price-NVDA">–</div>
+          <div class="details" id="sub-NVDA"></div>
+          <div class="signer-details" id="signers-NVDA"></div>
+        </div>
+        <div class="card" onclick="toggleCard('MSTR')">
+          <div class="card-header">
+            <span class="symbol">MSTR</span>
+            <span class="badge stock">STOCK</span>
+          </div>
+          <div class="price" id="price-MSTR">–</div>
+          <div class="details" id="sub-MSTR"></div>
+          <div class="signer-details" id="signers-MSTR"></div>
+        </div>
+      </div>
     </div>
   </div>
 
   <script>
-    const COLS = ${JSON.stringify(COL_HDRS)};
-    // const FORCE_TZ = "Pacific/Honolulu"; // <- uncomment to force a timezone
+    const SIGNER_NAMES = ${JSON.stringify(SIGNER_NAMES)};
+    const expandedCards = new Set();
 
-    function cls(age){
-      if (age == null || !Number.isFinite(Number(age))) return "dim";
-      const a = Number(age);
-      if (a <= 2000) return "fresh";
-      if (a <= 5000) return "ok";
-      if (a <= 15000) return "stale";
-      return "expired";
+    function toggleCard(symbol) {
+      const el = document.getElementById('signers-' + symbol);
+      if (!el) return;
+
+      if (expandedCards.has(symbol)) {
+        expandedCards.delete(symbol);
+        el.classList.remove('expanded');
+      } else {
+        expandedCards.add(symbol);
+        el.classList.add('expanded');
+      }
     }
 
-    function fmtLocalClock(ms){
-      if (!Number.isFinite(Number(ms))) return null;
-      const d = new Date(Number(ms));
+    function formatPrice(price) {
+      if (price == null || !Number.isFinite(Number(price))) return '–';
+      return '$' + Number(price).toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      });
+    }
+
+    function formatTime(ts) {
+      if (!ts) return null;
+      const ms = Date.parse(ts);
+      if (!Number.isFinite(ms)) return null;
+      const d = new Date(ms);
       if (!Number.isFinite(d.getTime())) return null;
-      // Browser local time:
-      return d.toLocaleTimeString(undefined, { hour12:false });
-      // Forced TZ example:
-      // return d.toLocaleTimeString(undefined, { hour12:false, timeZone: FORCE_TZ });
+      return d.toLocaleTimeString(undefined, { hour12: false });
     }
 
-    function row(label, arr){
-      return \`
-      <div class="group">
-        <div class="meta"><span class="badge">\${label}</span></div>
-        <table>
-          <colgroup>
-            <col class="c1"/><col class="c2"/><col class="c3"/><col class="c4"/><col class="c5"/><col class="c6"/>
-          </colgroup>
-          <thead><tr><th>SLOT</th><th>SIGNER</th><th>LOCAL</th><th>ISO</th><th>AGE(ms)</th><th>PRICE</th></tr></thead>
-          <tbody>
-            \${(arr||[]).map((c,i)=> {
-              const ms = c.ts ? Date.parse(c.ts) : null;
-              const local = ms ? fmtLocalClock(ms) : null;
-              return \`<tr>
-                <td>\${i+1}</td>
-                <td>\${COLS[i] ?? ("SIG"+(i+1))}</td>
-                <td>\${local ?? "<span class='dim'>n/a</span>"}</td>
-                <td>\${c.ts || "<span class='dim'>n/a</span>"}</td>
-                <td class="\${cls(c.age)}">\${(c.age==null||!Number.isFinite(Number(c.age)))?"n/a":Number(c.age)}</td>
-                <td>\${(c.price ?? null) !== null ? c.price : "<span class='dim'>n/a</span>"}</td>
-              </tr>\`;
-            }).join("")}
-          </tbody>
-        </table>
-      </div>\`;
+    function ageClass(age) {
+      if (age == null || !Number.isFinite(Number(age))) return 'dim';
+      const a = Number(age);
+      if (a <= 2000) return 'fresh';
+      if (a <= 5000) return 'ok';
+      if (a <= 15000) return 'stale';
+      return 'expired';
     }
 
-    function fmt2(x){ return x==null? "–" : Number(x).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}); }
-    function fmtMs(x){ return x==null? "–" : (x + " ms"); }
-
-    const pane = document.getElementById('pane');
-    const tri = document.getElementById('tri');
-    const toggle = document.getElementById('toggle');
-    let open = false;
-    function renderToggle(){
-      tri.classList.toggle("open", open);
-      tri.textContent = "▶";
-      pane.classList.toggle("show", open);
-      pane.classList.toggle("hide", !open);
-      toggle.querySelector('span:last-child').textContent = open ? "Hide per-signer details" : "Show per-signer details";
+    function formatMs(x) {
+      return x == null ? '–' : (x + ' ms');
     }
-    toggle.addEventListener('click', ()=>{ open = !open; renderToggle(); });
 
-    function updateUI(d){
-      const meta = document.getElementById('meta');
-      const stack = document.getElementById('stack');
-      const groups = document.getElementById('groups');
-      const oB = document.getElementById('agg-btc');
-      const oE = document.getElementById('agg-eth');
-      const oS = document.getElementById('agg-sol');
-      const oH = document.getElementById('agg-hype');
-      const oZ = document.getElementById('agg-zec');
-      const oT = document.getElementById('agg-tsla');
-      const oN = document.getElementById('agg-nvda');
-      const oM = document.getElementById('agg-mstr');
-      const sB = document.getElementById('sub-btc');
-      const sE = document.getElementById('sub-eth');
-      const sS = document.getElementById('sub-sol');
-      const sH = document.getElementById('sub-hype');
-      const sZ = document.getElementById('sub-zec');
-      const sT = document.getElementById('sub-tsla');
-      const sN = document.getElementById('sub-nvda');
-      const sM = document.getElementById('sub-mstr');
-
-      if(!d.exists){
-        meta.textContent = d.message || "state not initialized";
-        groups.innerHTML = "";
-        stack.style.display = "none";
+    function updateUI(data) {
+      if (!data.exists) {
+        document.getElementById('meta').textContent = data.message || 'State not initialized';
         return;
       }
 
-      meta.textContent = \`slot \${d.ctxSlot} · pda \${d.pda} · dec \${d.decimals} · [SSE]\`;
+      document.getElementById('meta').textContent =
+        \`slot \${data.ctxSlot} · pda \${data.pda} · dec \${data.decimals} · [SSE]\`;
 
-      // TOP aggregates
-      const B = d.agg?.BTC, E = d.agg?.ETH, S = d.agg?.SOL, H = d.agg?.HYPE, Z = d.agg?.ZEC;
-      const T = d.agg?.TSLA, N = d.agg?.NVDA, M = d.agg?.MSTR;
-      oB.textContent = fmt2(B?.avg ?? null);
-      oE.textContent = fmt2(E?.avg ?? null);
-      oS.textContent = fmt2(S?.avg ?? null);
-      oH.textContent = fmt2(H?.avg ?? null);
-      oZ.textContent = fmt2(Z?.avg ?? null);
-      oT.textContent = fmt2(T?.avg ?? null);
-      oN.textContent = fmt2(N?.avg ?? null);
-      oM.textContent = fmt2(M?.avg ?? null);
+      const symbols = ['BTC', 'ETH', 'SOL', 'HYPE', 'ZEC', 'TSLA', 'NVDA', 'MSTR'];
 
-      const tB = d.latestTs?.BTC ?? null;
-      const tE = d.latestTs?.ETH ?? null;
-      const tS = d.latestTs?.SOL ?? null;
-      const tH = d.latestTs?.HYPE ?? null;
-      const tZ = d.latestTs?.ZEC ?? null;
-      const tT = d.latestTs?.TSLA ?? null;
-      const tN = d.latestTs?.NVDA ?? null;
-      const tM = d.latestTs?.MSTR ?? null;
+      for (const sym of symbols) {
+        const priceEl = document.getElementById(\`price-\${sym}\`);
+        const subEl = document.getElementById(\`sub-\${sym}\`);
+        const signersEl = document.getElementById(\`signers-\${sym}\`);
 
-      const lcB = tB ? fmtLocalClock(tB) : null;
-      const lcE = tE ? fmtLocalClock(tE) : null;
-      const lcS = tS ? fmtLocalClock(tS) : null;
-      const lcH = tH ? fmtLocalClock(tH) : null;
-      const lcZ = tZ ? fmtLocalClock(tZ) : null;
-      const lcT = tT ? fmtLocalClock(tT) : null;
-      const lcN = tN ? fmtLocalClock(tN) : null;
-      const lcM = tM ? fmtLocalClock(tM) : null;
+        const aggData = data.agg?.[sym];
+        const latestTsMs = data.latestTs?.[sym];
+        const rows = data.groups?.[sym] || [];
 
-      sB.textContent = (B && B.count)
-        ? \`\${fmtMs(B.ageAvg)} · \${lcB ?? "–"}\`
-        : "–";
-      sE.textContent = (E && E.count)
-        ? \`\${fmtMs(E.ageAvg)} · \${lcE ?? "–"}\`
-        : "–";
-      sS.textContent = (S && S.count)
-        ? \`\${fmtMs(S.ageAvg)} · \${lcS ?? "–"}\`
-        : "–";
-      sH.textContent = (H && H.count)
-        ? \`\${fmtMs(H.ageAvg)} · \${lcH ?? "–"}\`
-        : "–";
-      sZ.textContent = (Z && Z.count)
-        ? \`\${fmtMs(Z.ageAvg)} · \${lcZ ?? "–"}\`
-        : "–";
-      sT.textContent = (T && T.count)
-        ? \`\${fmtMs(T.ageAvg)} · \${lcT ?? "–"}\`
-        : "–";
-      sN.textContent = (N && N.count)
-        ? \`\${fmtMs(N.ageAvg)} · \${lcN ?? "–"}\`
-        : "–";
-      sM.textContent = (M && M.count)
-        ? \`\${fmtMs(M.ageAvg)} · \${lcM ?? "–"}\`
-        : "–";
+        // Update aggregated price
+        if (priceEl) {
+          priceEl.textContent = formatPrice(aggData?.avg ?? null);
+        }
 
-      stack.style.display = (B?.count || E?.count || S?.count || H?.count || Z?.count || T?.count || N?.count || M?.count) ? "block" : "none";
+        // Update summary details
+        if (subEl) {
+          const localTime = latestTsMs ? formatTime(new Date(latestTsMs).toISOString()) : null;
+          const ageAvg = aggData?.ageAvg;
+          const ageColor = ageClass(ageAvg);
 
-      // Per-signer tables with LOCAL time column
-      groups.innerHTML = row("BTC", d.groups.BTC) + row("ETH", d.groups.ETH) + row("SOL", d.groups.SOL) + row("HYPE", d.groups.HYPE) + row("ZEC", d.groups.ZEC) + row("TSLA", d.groups.TSLA) + row("NVDA", d.groups.NVDA) + row("MSTR", d.groups.MSTR);
+          subEl.innerHTML = \`
+            <div class="details-row"><span>COUNT</span><span>\${aggData?.count || 0} sources</span></div>
+            <div class="details-row"><span>AVG AGE</span><span class="\${ageColor}">\${formatMs(ageAvg)}</span></div>
+            <div class="details-row"><span>UPDATED</span><span>\${localTime || 'n/a'}</span></div>
+          \`;
+        }
+
+        // Update signer details table
+        if (signersEl) {
+          const wasExpanded = expandedCards.has(sym);
+
+          const tableHtml = \`
+            <table class="signer-table">
+              <thead>
+                <tr>
+                  <th>SIGNER</th>
+                  <th>PRICE</th>
+                  <th>TIME</th>
+                  <th>AGE</th>
+                </tr>
+              </thead>
+              <tbody>
+                \${rows.map((row, idx) => {
+                  const localTime = formatTime(row.ts);
+                  const ageColor = ageClass(row.age);
+                  const price = row.price !== null ? '$' + row.price : '<span class="dim">n/a</span>';
+                  const age = row.age !== null && Number.isFinite(row.age) ? Math.round(row.age) + 'ms' : '<span class="dim">n/a</span>';
+
+                  return \`<tr>
+                    <td>\${SIGNER_NAMES[idx] || 'SIG' + (idx + 1)}</td>
+                    <td>\${price}</td>
+                    <td>\${localTime || '<span class="dim">n/a</span>'}</td>
+                    <td class="\${ageColor}">\${age}</td>
+                  </tr>\`;
+                }).join('')}
+              </tbody>
+            </table>
+          \`;
+
+          signersEl.innerHTML = tableHtml;
+
+          // Restore expanded state
+          if (wasExpanded) {
+            signersEl.classList.add('expanded');
+          }
+        }
+      }
     }
 
     // Set up Server-Sent Events connection
@@ -507,8 +700,7 @@ const HTML = /* html */ `
         if (data.connected) {
           console.log('SSE connected');
         } else if (data.error) {
-          document.getElementById('meta').textContent = "error: " + data.error;
-          document.getElementById('stack').style.display = "none";
+          document.getElementById('meta').textContent = 'error: ' + data.error;
         } else {
           updateUI(data);
         }
@@ -519,11 +711,9 @@ const HTML = /* html */ `
 
     eventSource.onerror = (error) => {
       console.error('SSE error:', error);
-      document.getElementById('meta').textContent = "Connection error - retrying...";
+      document.getElementById('meta').textContent = 'Connection error - retrying...';
       // EventSource automatically reconnects
     };
-
-    renderToggle();
   </script>
 </body>
 </html>
