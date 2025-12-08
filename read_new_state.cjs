@@ -72,9 +72,17 @@ async function main() {
 
     // Find the median price (middle two averaged if 4 values)
     const sortedPrices = [...prices].filter(p => p !== 0).sort((a, b) => a - b);
-    const median = sortedPrices.length >= 2
-      ? (sortedPrices[1] + sortedPrices[2]) / 2
-      : sortedPrices[0] || 0;
+    let median;
+    if (sortedPrices.length >= 4) {
+      // True median: average of middle two values
+      median = (sortedPrices[1] + sortedPrices[2]) / 2;
+    } else if (sortedPrices.length >= 2) {
+      // Average of available prices
+      median = sortedPrices.reduce((a, b) => a + b, 0) / sortedPrices.length;
+    } else {
+      // Single price or no prices
+      median = sortedPrices[0] || 0;
+    }
 
     const displayPrice = median / Math.pow(10, DECIMALS);
 
