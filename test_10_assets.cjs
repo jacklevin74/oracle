@@ -2,7 +2,7 @@
 const {Connection, Keypair, PublicKey, Transaction, sendAndConfirmTransaction} = require("@solana/web3.js");
 const fs = require("fs");
 
-const TEST_PROGRAM_ID = new PublicKey("CcgTMiYkgVfz7cAGkD6835BqfycG5N5Y4aPPHYW1EvKx");
+const TEST_PROGRAM_ID = new PublicKey("wsTKwvC4uVwbamEHfCH6JexbvG6Ubkqav5v3U6ewKYL");
 const RPC_URL = "https://rpc.mainnet.x1.xyz";
 const DECIMALS = 8;
 
@@ -19,11 +19,11 @@ function encodeU8(value) {
 }
 
 async function fetchPythPrices() {
-  const FEEDS = {
+  // Note: HYPE not available on Pyth, uses composite oracle only
+  const PYTH_FEEDS = {
     BTC: "0xe62df6c8b4a85fe1a67db44dc12de5db330f7ac66b72dc658afedf0f4a415b43",
     ETH: "0xff61491a931112ddf1bd8147cd1b641375f79f5825126d665480874634fd0ace",
     SOL: "0xef0d8b6fda2ceba41da15d4095d1da392a0d2f8ed0c6c7bc0f4cfac8c280b56d",
-    HYPE: "0x9c0bef372433bf0c9e823e9f2aa0a5220d5a25d3b0bf35e85bc2bc7960b6b46f",
     ZEC: "0xbe9b59d178f0d6a97ab4c343bff2aa69caa1eaae3e9048a65788c529b125bb24",
     TSLA: "0x16dad506d7db8da01c87581c87ca897a012a153557d4d578c3b9c9e1bc0632f1",
     NVDA: "0xb1073854ed24cbc755dc527418f52b7d271f6cc967bbf8d8129112b18860a593",
@@ -32,12 +32,23 @@ async function fetchPythPrices() {
     SILVER: "0xf2fb02c32b055c805e7238d628e5e9dadef274376114eb1f012337cabe93871e",
   };
 
-  const response = await fetch("https://hermes.pyth.network/v2/updates/price/latest?" +
-    Object.values(FEEDS).map(id => `ids[]=${id}`).join("&"));
-  const data = await response.json();
+  const url = "https://hermes.pyth.network/v2/updates/price/latest?" +
+    Object.values(PYTH_FEEDS).map(id => `ids[]=${id}`).join("&");
+
+  const response = await fetch(url);
+  const text = await response.text();
+
+  let data;
+  try {
+    data = JSON.parse(text);
+  } catch (e) {
+    console.error("Failed to parse Pyth response as JSON:");
+    console.error("Response text:", text.substring(0, 500));
+    throw e;
+  }
 
   const prices = {};
-  for (const [symbol, feedId] of Object.entries(FEEDS)) {
+  for (const [symbol, feedId] of Object.entries(PYTH_FEEDS)) {
     const feed = data.parsed.find(f => '0x' + f.id === feedId);
     if (feed && feed.price) {
       const price = Number(feed.price.price) * Math.pow(10, feed.price.expo);
@@ -46,6 +57,10 @@ async function fetchPythPrices() {
       prices[symbol] = 0;
     }
   }
+
+  // HYPE uses composite oracle - set to $35 for testing
+  prices.HYPE = Math.round(35 * Math.pow(10, DECIMALS));
+
   return prices;
 }
 

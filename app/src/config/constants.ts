@@ -7,10 +7,10 @@ import { Asset, PythFeeds } from '../types';
 
 /**
  * Program ID on Solana
- * TESTING: Using test program with 8-asset support
- * PRODUCTION: LuS6XnQ3qNXqNQvAJ3akXnEJRBv9XNoUricjMgTyCxX
+ * CURRENT: 10-asset program (BTC, ETH, SOL, HYPE, ZEC, TSLA, NVDA, MSTR, GOLD, SILVER)
+ * BACKUP 8-asset: CcgTMiYkgVfz7cAGkD6835BqfycG5N5Y4aPPHYW1EvKx (keypair saved in oracle-keypair-8asset.json)
  */
-export const PROGRAM_ID = new PublicKey('CcgTMiYkgVfz7cAGkD6835BqfycG5N5Y4aPPHYW1EvKx');
+export const PROGRAM_ID = new PublicKey('wsTKwvC4uVwbamEHfCH6JexbvG6Ubkqav5v3U6ewKYL');
 
 /**
  * PDA seed for state account
