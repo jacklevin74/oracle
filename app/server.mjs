@@ -36,10 +36,12 @@ const OFF = {
   tsla: 32 + TRIP.SIZE * 5,
   nvda: 32 + TRIP.SIZE * 6,
   mstr: 32 + TRIP.SIZE * 7,
-  decimals: 32 + TRIP.SIZE * 8,
-  bump: 32 + TRIP.SIZE * 8 + 1,
+  gold: 32 + TRIP.SIZE * 8,
+  silver: 32 + TRIP.SIZE * 9,
+  decimals: 32 + TRIP.SIZE * 10,
+  bump: 32 + TRIP.SIZE * 10 + 1,
 };
-const PAYLOAD_MIN = 32 + TRIP.SIZE * 8 + 2;
+const PAYLOAD_MIN = 32 + TRIP.SIZE * 10 + 2;
 
 function readI64LE(b, o) {
   const buf = Buffer.isBuffer(b) ? b : Buffer.from(b);
@@ -105,6 +107,8 @@ async function readOracleState() {
   const tsla = decodeTrip(payload, OFF.tsla);
   const nvda = decodeTrip(payload, OFF.nvda);
   const mstr = decodeTrip(payload, OFF.mstr);
+  const gold = decodeTrip(payload, OFF.gold);
+  const silver = decodeTrip(payload, OFF.silver);
 
   const now = Date.now();
   const validMs = (x) => Number.isFinite(Number(x)) && Number(x) > 1e11 && Number(x) < 8.64e15;
@@ -131,8 +135,8 @@ async function readOracleState() {
     TSLA: mkRows(tsla),
     NVDA: mkRows(nvda),
     MSTR: mkRows(mstr),
-    GOLD: mkRows(btc),
-    SILVER: mkRows(btc)
+    GOLD: mkRows(gold),
+    SILVER: mkRows(silver)
   };
 
   // Aggregates from current rows (ignore nulls, exclude stale and outliers)
