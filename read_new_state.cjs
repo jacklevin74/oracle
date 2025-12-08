@@ -4,7 +4,7 @@
  */
 const {Connection, PublicKey} = require("@solana/web3.js");
 
-const PROGRAM_ID = new PublicKey("wsTKwvC4uVwbamEHfCH6JexbvG6Ubkqav5v3U6ewKYL");
+const PROGRAM_ID = new PublicKey("CcgTMiYkgVfz7cAGkD6835BqfycG5N5Y4aPPHYW1EvKx");
 const RPC_URL = "https://rpc.mainnet.x1.xyz";
 const DECIMALS = 8;
 

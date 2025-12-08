@@ -2,7 +2,7 @@
 const {Connection, Keypair, PublicKey, Transaction, sendAndConfirmTransaction} = require("@solana/web3.js");
 const fs = require("fs");
 
-const TEST_PROGRAM_ID = new PublicKey("wsTKwvC4uVwbamEHfCH6JexbvG6Ubkqav5v3U6ewKYL");
+const TEST_PROGRAM_ID = new PublicKey("CcgTMiYkgVfz7cAGkD6835BqfycG5N5Y4aPPHYW1EvKx");
 const RPC_URL = "https://rpc.mainnet.x1.xyz";
 const DECIMALS = 8;
 

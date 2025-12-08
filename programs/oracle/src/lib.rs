@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 use std::str::FromStr;
 
-declare_id!("wsTKwvC4uVwbamEHfCH6JexbvG6Ubkqav5v3U6ewKYL");
+declare_id!("CcgTMiYkgVfz7cAGkD6835BqfycG5N5Y4aPPHYW1EvKx");
 
 // Hard-coded per-parameter updaters (mainnet relays)
 const PARAM1_UPDATER: &str = "CGLezzdUpYmxiq3g5xdXxry8SWqwQbSxFJsdqfM13ro9"; // mn_relay1.json

@@ -5,7 +5,7 @@
 const {Connection, Keypair, PublicKey, Transaction, sendAndConfirmTransaction, SystemProgram} = require("@solana/web3.js");
 const fs = require("fs");
 
-const PROGRAM_ID = new PublicKey("wsTKwvC4uVwbamEHfCH6JexbvG6Ubkqav5v3U6ewKYL");
+const PROGRAM_ID = new PublicKey("CcgTMiYkgVfz7cAGkD6835BqfycG5N5Y4aPPHYW1EvKx");
 const RPC_URL = "https://rpc.mainnet.x1.xyz";
 
 // Allowed updaters (must match the program)

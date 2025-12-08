@@ -7,10 +7,9 @@ import { Asset, PythFeeds } from '../types';
 
 /**
  * Program ID on Solana
- * CURRENT: 10-asset program (BTC, ETH, SOL, HYPE, ZEC, TSLA, NVDA, MSTR, GOLD, SILVER)
- * BACKUP 8-asset: CcgTMiYkgVfz7cAGkD6835BqfycG5N5Y4aPPHYW1EvKx (keypair saved in oracle-keypair-8asset.json)
+ * Production program upgraded to 10 assets (BTC, ETH, SOL, HYPE, ZEC, TSLA, NVDA, MSTR, GOLD, SILVER)
  */
-export const PROGRAM_ID = new PublicKey('wsTKwvC4uVwbamEHfCH6JexbvG6Ubkqav5v3U6ewKYL');
+export const PROGRAM_ID = new PublicKey('CcgTMiYkgVfz7cAGkD6835BqfycG5N5Y4aPPHYW1EvKx');
 
 /**
  * PDA seed for state account
