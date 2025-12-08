@@ -18,12 +18,13 @@ export enum Asset {
   MSTR = 8,
   GOLD = 9,
   SILVER = 10,
+  FARTCOIN = 11,
 }
 
 /**
  * Asset symbol names
  */
-export type AssetSymbol = 'BTC' | 'ETH' | 'SOL' | 'HYPE' | 'ZEC' | 'TSLA' | 'NVDA' | 'MSTR' | 'GOLD' | 'SILVER';
+export type AssetSymbol = 'BTC' | 'ETH' | 'SOL' | 'HYPE' | 'ZEC' | 'TSLA' | 'NVDA' | 'MSTR' | 'GOLD' | 'SILVER' | 'FARTCOIN';
 
 /**
  * Price data with timestamp
@@ -47,6 +48,7 @@ export interface LatestPrices {
   MSTR: PriceData | null;
   GOLD: PriceData | null;
   SILVER: PriceData | null;
+  FARTCOIN: PriceData | null;
 }
 
 /**
@@ -63,6 +65,7 @@ export interface SentPriceTracking {
   MSTR: number;
   GOLD: number;
   SILVER: number;
+  FARTCOIN: number;
 }
 
 /**
@@ -79,6 +82,7 @@ export interface LastSentI64 {
   MSTR: number | null;
   GOLD: number | null;
   SILVER: number | null;
+  FARTCOIN: number | null;
 }
 
 /**
@@ -121,6 +125,7 @@ export interface CompositeTrackingMap {
   MSTR: CompositeTracking;
   GOLD: CompositeTracking;
   SILVER: CompositeTracking;
+  FARTCOIN: CompositeTracking;
 }
 
 /**

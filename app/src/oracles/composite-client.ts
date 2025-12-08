@@ -137,4 +137,11 @@ export const COMPOSITE_CONFIGS: Record<AssetSymbol, CompositeOracleConfig> = {
   MSTR: {},
   GOLD: {},
   SILVER: {},
+  FARTCOIN: {
+    productCB: 'FARTCOIN-USD',
+    symbolKucoin: 'FARTCOIN-USDT',
+    symbolBinance: 'fartcoinusdt',
+    symbolMexc: 'FARTCOINUSDT',
+    symbolBybit: 'FARTCOINUSDT',
+  },
 };

@@ -64,6 +64,7 @@ export const ASSETS: Record<string, Asset> = {
   MSTR: Asset.MSTR,
   GOLD: Asset.GOLD,
   SILVER: Asset.SILVER,
+  FARTCOIN: Asset.FARTCOIN,
 };
 
 /**

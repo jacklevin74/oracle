@@ -26,6 +26,7 @@ const prices = {
   MSTR: { price: null, timestamp: null, source: null },
   GOLD: { price: null, timestamp: null, source: null },
   SILVER: { price: null, timestamp: null, source: null },
+  FARTCOIN: { price: null, timestamp: null, source: null },
 };
 
 // Initialize clients
@@ -43,7 +44,7 @@ pythClient.on('price', (symbol, priceData) => {
 
 // Setup composite handlers
 compositeClient.on('price', (symbol, data) => {
-  if (symbol === 'HYPE' || symbol === 'ZEC') {
+  if (symbol === 'HYPE' || symbol === 'ZEC' || symbol === 'FARTCOIN') {
     if (data.composite !== null) {
       prices[symbol] = {
         price: data.composite,
@@ -359,6 +360,14 @@ const HTML = `
           </div>
           <div class="price" id="price-ZEC">–</div>
           <div class="details" id="sub-ZEC"></div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <span class="symbol">FARTCOIN</span>
+            <span class="badge crypto">CRYPTO</span>
+          </div>
+          <div class="price" id="price-FARTCOIN">–</div>
+          <div class="details" id="sub-FARTCOIN"></div>
         </div>
       </div>
     </div>

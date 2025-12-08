@@ -724,9 +724,12 @@ export class CompositeOracle extends EventEmitter {
       this.log(this.nowISO(), '⏸️  Kraken feed disabled');
     }
 
-    if (ENABLE_COINBASE) {
+    // Only start Coinbase if productCB was provided in config (not using fallback)
+    if (ENABLE_COINBASE && this.options.productCB) {
       this.log(this.nowISO(), '🚀 Starting Coinbase feed...');
       this.coinbaseConnect();
+    } else if (!this.options.productCB) {
+      this.log(this.nowISO(), '⏸️  Coinbase feed disabled (no product configured)');
     } else {
       this.log(this.nowISO(), '⏸️  Coinbase feed disabled');
     }

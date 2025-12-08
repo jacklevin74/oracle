@@ -22,6 +22,7 @@ export interface PriceData {
   mstr: number | null;
   gold: number | null;
   silver: number | null;
+  fartcoin: number | null;
 }
 
 export interface RelayMessage {
@@ -48,6 +49,7 @@ export class PriceRelay extends EventEmitter {
     MSTR: { price: number; pubMs: number } | null;
     GOLD: { price: number; pubMs: number } | null;
     SILVER: { price: number; pubMs: number } | null;
+    FARTCOIN: { price: number; pubMs: number } | null;
   };
 
   private compositeData: {
@@ -61,6 +63,7 @@ export class PriceRelay extends EventEmitter {
     MSTR: { price: number | null; count: number };
     GOLD: { price: number | null; count: number };
     SILVER: { price: number | null; count: number };
+    FARTCOIN: { price: number | null; count: number };
   };
 
   private heartbeatInterval: NodeJS.Timeout | null = null;
@@ -80,6 +83,7 @@ export class PriceRelay extends EventEmitter {
       MSTR: null,
       GOLD: null,
       SILVER: null,
+      FARTCOIN: null,
     };
 
     this.compositeData = {
@@ -93,6 +97,7 @@ export class PriceRelay extends EventEmitter {
       MSTR: { price: null, count: 0 },
       GOLD: { price: null, count: 0 },
       SILVER: { price: null, count: 0 },
+      FARTCOIN: { price: null, count: 0 },
     };
 
     this.pythClient = new PythClient();
@@ -122,8 +127,8 @@ export class PriceRelay extends EventEmitter {
         count: data.count,
       };
 
-      // HYPE and ZEC use composite only
-      if (symbol === 'HYPE' || symbol === 'ZEC') {
+      // HYPE, ZEC, and FARTCOIN use composite only
+      if (symbol === 'HYPE' || symbol === 'ZEC' || symbol === 'FARTCOIN') {
         if (data.composite !== null) {
           this.latest[symbol] = {
             price: data.composite,
@@ -154,6 +159,7 @@ export class PriceRelay extends EventEmitter {
       mstr: this.latest.MSTR?.price || null,
       gold: this.latest.GOLD?.price || null,
       silver: this.latest.SILVER?.price || null,
+      fartcoin: this.latest.FARTCOIN?.price || null,
     };
 
     const message: RelayMessage = {
@@ -233,6 +239,7 @@ export class PriceRelay extends EventEmitter {
       mstr: this.latest.MSTR?.price || null,
       gold: this.latest.GOLD?.price || null,
       silver: this.latest.SILVER?.price || null,
+      fartcoin: this.latest.FARTCOIN?.price || null,
     };
   }
 

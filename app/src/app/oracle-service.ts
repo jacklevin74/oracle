@@ -83,6 +83,7 @@ export class OracleService extends EventEmitter {
       MSTR: null,
       GOLD: null,
       SILVER: null,
+      FARTCOIN: null,
     };
 
     this.sentUpTo = {
@@ -96,6 +97,7 @@ export class OracleService extends EventEmitter {
       MSTR: 0,
       GOLD: 0,
       SILVER: 0,
+      FARTCOIN: 0,
     };
 
     this.lastSentI64 = {
@@ -109,6 +111,7 @@ export class OracleService extends EventEmitter {
       MSTR: null,
       GOLD: null,
       SILVER: null,
+      FARTCOIN: null,
     };
 
     this.compositeData = {
@@ -122,6 +125,7 @@ export class OracleService extends EventEmitter {
       MSTR: { price: null, count: 0, sources: [] },
       GOLD: { price: null, count: 0, sources: [] },
       SILVER: { price: null, count: 0, sources: [] },
+      FARTCOIN: { price: null, count: 0, sources: [] },
     };
 
     // Initialize clients
