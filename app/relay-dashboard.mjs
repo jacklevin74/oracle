@@ -427,11 +427,13 @@ const HTML = `
   </div>
 
   <script>
-    function formatPrice(price) {
+    function formatPrice(price, symbol) {
       if (price == null || !Number.isFinite(Number(price))) return '–';
+      // FARTCOIN shows 4 decimals for better precision
+      const decimals = symbol === 'FARTCOIN' ? 4 : 2;
       return '$' + Number(price).toLocaleString(undefined, {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2
+        minimumFractionDigits: decimals,
+        maximumFractionDigits: decimals
       });
     }
 
@@ -464,7 +466,7 @@ const HTML = `
         const subEl = document.getElementById(\`sub-\${symbol}\`);
 
         if (priceEl) {
-          priceEl.textContent = formatPrice(info.price);
+          priceEl.textContent = formatPrice(info.price, symbol);
         }
 
         if (subEl) {

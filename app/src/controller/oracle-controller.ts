@@ -81,6 +81,14 @@ export class OracleController extends EventEmitter {
   private updateTimer: NodeJS.Timeout | null = null;
   private currentPrices: PriceData | null = null;
 
+  // Error handling state
+  private consecutiveFailures = 0;
+  private lastFailureTime = 0;
+  private circuitBreakerOpen = false;
+  private circuitBreakerResetTime = 0;
+  private totalErrors = 0;
+  private totalSuccesses = 0;
+
   constructor(config: ControllerConfig) {
     super();
     this.config = config;
@@ -254,11 +262,116 @@ export class OracleController extends EventEmitter {
   }
 
   /**
+   * Check if circuit breaker should prevent transaction attempts
+   */
+  private isCircuitBreakerOpen(): boolean {
+    if (!this.circuitBreakerOpen) {
+      return false;
+    }
+
+    // Check if it's time to reset the circuit breaker
+    if (Date.now() >= this.circuitBreakerResetTime) {
+      this.logger.info(colors.yellow + '[Controller] Circuit breaker reset - retrying transactions' + colors.reset);
+      this.circuitBreakerOpen = false;
+      this.consecutiveFailures = 0;
+      return false;
+    }
+
+    return true;
+  }
+
+  /**
+   * Categorize error type for better logging
+   */
+  private categorizeError(err: any): { type: 'transient' | 'permanent' } {
+    const msg = err?.message?.toLowerCase() || String(err).toLowerCase();
+
+    // Transient errors (network/RPC issues)
+    const transientPatterns = [
+      'block height exceeded',
+      'blockhash not found',
+      'blockhash expired',
+      'timeout',
+      'network',
+      'connection',
+      'econnrefused',
+      'enotfound',
+      'rate limit',
+      '429',
+      '503',
+      '504',
+    ];
+
+    const isTransient = transientPatterns.some(pattern => msg.includes(pattern));
+
+    return { type: isTransient ? 'transient' : 'permanent' };
+  }
+
+  /**
+   * Handle transaction error with circuit breaker (no retries - continue with fresh data)
+   */
+  private handleTransactionError(err: any, updates: Array<{ asset: string; price: number }>) {
+    this.totalErrors++;
+    this.consecutiveFailures++;
+    this.lastFailureTime = Date.now();
+
+    const errorCategory = this.categorizeError(err);
+    const priceStr = updates.map(({ asset, price }) => `${asset}=$${formatPrice(price)}`).join(', ');
+
+    // Log detailed error information
+    this.logger.error(
+      colors.red + `[Controller] Transaction failed (${errorCategory.type})` + colors.reset +
+        ` - ${priceStr}\n` +
+        `  Error: ${err?.message || String(err)}\n` +
+        `  Consecutive failures: ${this.consecutiveFailures}\n` +
+        `  Success rate: ${this.totalSuccesses}/${this.totalSuccesses + this.totalErrors} ` +
+        `(${((this.totalSuccesses / Math.max(1, this.totalSuccesses + this.totalErrors)) * 100).toFixed(1)}%)\n` +
+        `  ${colors.yellow}Skipping failed transaction - will continue with fresh data${colors.reset}`
+    );
+
+    // Open circuit breaker after 10 consecutive failures
+    if (this.consecutiveFailures >= 10 && !this.circuitBreakerOpen) {
+      this.circuitBreakerOpen = true;
+      this.circuitBreakerResetTime = Date.now() + 60000; // Reset after 1 minute
+      this.logger.error(
+        colors.red + '⚠️  [Controller] Circuit breaker OPENED - pausing transactions for 60 seconds' + colors.reset
+      );
+    }
+  }
+
+  /**
+   * Record successful transaction
+   */
+  private recordTransactionSuccess() {
+    this.totalSuccesses++;
+    if (this.consecutiveFailures > 0) {
+      this.logger.info(
+        colors.green +
+          `[Controller] Transaction succeeded after ${this.consecutiveFailures} failures - resetting error count` +
+          colors.reset
+      );
+    }
+    this.consecutiveFailures = 0;
+    this.lastFailureTime = 0;
+  }
+
+  /**
    * Process live update (sign and submit)
    */
   private async processLiveUpdate(updates: Array<{ asset: string; price: number; i64: number }>) {
     if (!this.txBuilder) {
       this.logger.errorToConsole('[Controller] Transaction builder not initialized');
+      return;
+    }
+
+    // Check circuit breaker
+    if (this.isCircuitBreakerOpen()) {
+      const waitTime = Math.ceil((this.circuitBreakerResetTime - Date.now()) / 1000);
+      this.logger.debug(
+        colors.yellow +
+          `[Controller] Circuit breaker open - skipping transaction (resets in ${waitTime}s)` +
+          colors.reset
+      );
       return;
     }
 
@@ -294,6 +407,9 @@ export class OracleController extends EventEmitter {
         clientTsMs
       );
 
+      // Record success
+      this.recordTransactionSuccess();
+
       // Record as sent
       for (const { asset, price, i64 } of updates) {
         this.validator.recordPrice(asset, price);
@@ -311,7 +427,7 @@ export class OracleController extends EventEmitter {
           colors.gray + `(tx: ${sig.substring(0, 8)}...)` + colors.reset
       );
     } catch (err) {
-      this.logger.error('[Controller] Failed to send transaction:', err);
+      this.handleTransactionError(err, updates);
     }
   }
 
@@ -320,11 +436,23 @@ export class OracleController extends EventEmitter {
    */
   getStatus() {
     const relayHealth = this.supervisor.getHealth();
+    const successRate = this.totalSuccesses + this.totalErrors > 0
+      ? (this.totalSuccesses / (this.totalSuccesses + this.totalErrors)) * 100
+      : 100;
+
     return {
       relay: relayHealth,
       prices: this.currentPrices,
       lastSent: this.lastSentPrices,
       updaterIndex: this.config.updaterIndex,
+      errorMetrics: {
+        consecutiveFailures: this.consecutiveFailures,
+        totalSuccesses: this.totalSuccesses,
+        totalErrors: this.totalErrors,
+        successRate: parseFloat(successRate.toFixed(1)),
+        circuitBreakerOpen: this.circuitBreakerOpen,
+        lastFailureTime: this.lastFailureTime > 0 ? new Date(this.lastFailureTime).toISOString() : null,
+      },
     };
   }
 

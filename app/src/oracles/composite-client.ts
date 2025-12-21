@@ -138,6 +138,7 @@ export const COMPOSITE_CONFIGS: Record<AssetSymbol, CompositeOracleConfig> = {
   GOLD: {},
   SILVER: {},
   FARTCOIN: {
+    pairKraken: 'FARTCOIN/USD',
     productCB: 'FARTCOIN-USD',
     symbolKucoin: 'FARTCOIN-USDT',
     symbolBinance: 'fartcoinusdt',
