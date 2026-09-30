@@ -34,7 +34,9 @@
     "dashboard:relay": "node relay-dashboard.mjs",
     "controller:dry-run": "ANCHOR_PROVIDER_URL=https://rpc.mainnet.x1.xyz node dist/controller/controller-process.js --dry-run --foreground",
     "controller:dry-run-verbose": "ANCHOR_PROVIDER_URL=https://rpc.mainnet.x1.xyz node dist/controller/controller-process.js --dry-run --foreground --verbose",
-    "controller:start": "ANCHOR_PROVIDER_URL=https://rpc.mainnet.x1.xyz node dist/controller/controller-process.js --prompt"
+    "controller:start": "ANCHOR_PROVIDER_URL=https://rpc.mainnet.x1.xyz node dist/controller/controller-process.js --prompt",
+    "api": "node dist/api/price-api-server.js",
+    "api:dev": "ts-node src/api/price-api-server.ts"
   },
   "keywords": [
     "solana",
