@@ -63,6 +63,38 @@
   .cat { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
   footer { margin-top: 24px; color: var(--muted); font-size: 12px; }
   code { font-size: 12px; }
+  a { color: var(--accent); }
+
+  /* API explainer */
+  .api { padding: 18px 20px; }
+  .api p { margin: 0 0 12px; max-width: 75ch; }
+  .api h3 { font-size: 14px; margin: 22px 0 8px; }
+  .api h3:first-child { margin-top: 0; }
+  .picker { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 4px; }
+  .picker label { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border: 1px solid var(--line);
+    border-radius: 999px; cursor: pointer; font-size: 13px; font-weight: 600; user-select: none; }
+  .picker input { margin: 0; accent-color: var(--accent); }
+  .picker label:has(input:checked) { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
+  .picker-actions { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; font-size: 13px; margin-bottom: 4px; }
+  .linkbtn { background: none; border: 0; padding: 0; color: var(--accent); cursor: pointer; font: inherit; }
+  .tabs { display: flex; flex-wrap: wrap; gap: 4px; border-bottom: 1px solid var(--line); margin-top: 14px; }
+  .tab { background: none; border: 0; border-bottom: 2px solid transparent; padding: 8px 12px; margin-bottom: -1px;
+    color: var(--muted); cursor: pointer; font: inherit; font-weight: 600; }
+  .tab[aria-selected="true"] { color: var(--text); border-bottom-color: var(--accent); }
+  .snippet { position: relative; margin-top: 10px; }
+  .snippet pre { margin: 0; padding: 14px 16px; padding-right: 72px; background: var(--bg); border: 1px solid var(--line);
+    border-radius: 8px; overflow-x: auto; font: 12.5px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .copy { position: absolute; top: 8px; right: 8px; padding: 4px 10px; font: 600 12px inherit; border-radius: 6px;
+    border: 1px solid var(--line); background: var(--panel); color: var(--text); cursor: pointer; }
+  .note { color: var(--muted); font-size: 13px; margin-top: 8px; }
+  .try { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 14px; }
+  .btn { padding: 7px 14px; border-radius: 8px; border: 1px solid var(--accent); background: var(--accent);
+    color: #fff; font: 600 13px inherit; cursor: pointer; }
+  .btn.secondary { background: none; color: var(--accent); }
+  #tryout { max-height: 260px; }
+  .ref { width: 100%; }
+  .ref td, .ref th { white-space: normal; vertical-align: top; }
+  .ref td:first-child { white-space: nowrap; }
 </style>
 </head>
 <body>
@@ -74,6 +106,7 @@
       <span>Updated <b id="updated">—</b></span>
       <span>USDT/USD <b id="usdt">—</b></span>
       <span>Feeds <b id="feedcount">—</b></span>
+      <a href="#api">Use the API ↓</a>
     </div>
   </header>
 
@@ -100,11 +133,78 @@
     </table>
   </div>
 
+  <h2 id="api">Use the API</h2>
+  <div class="panel api">
+    <h3>1. Pick assets</h3>
+    <p>Choose any assets and the examples below update to match. Symbols are case-insensitive, and
+      <code>all</code> selects every asset. No API key is needed.</p>
+    <div class="picker" id="picker"><span class="muted">Loading assets…</span></div>
+    <div class="picker-actions">
+      <button class="linkbtn" id="pick-all" type="button">Select all</button>
+      <button class="linkbtn" id="pick-none" type="button">Clear</button>
+      <label><input type="checkbox" id="opt-detail"> Include per-exchange sources (<code>detail=true</code>)</label>
+    </div>
+
+    <h3>2. Get prices</h3>
+    <div class="tabs" role="tablist" id="tabs">
+      <button class="tab" role="tab" data-tab="sse-js" aria-selected="true">Stream (JavaScript)</button>
+      <button class="tab" role="tab" data-tab="sse-curl">Stream (curl)</button>
+      <button class="tab" role="tab" data-tab="ws">WebSocket</button>
+      <button class="tab" role="tab" data-tab="rest">One-off snapshot</button>
+      <button class="tab" role="tab" data-tab="python">Python</button>
+    </div>
+    <div class="snippet"><pre><code id="snippet"></code></pre><button class="copy" id="copy" type="button">Copy</button></div>
+    <p class="note" id="snippet-note"></p>
+
+    <div class="try">
+      <button class="btn" id="try-start" type="button">Try it: stream selected assets</button>
+      <button class="btn secondary" id="try-stop" type="button" hidden>Stop</button>
+      <span class="muted" id="try-status"></span>
+    </div>
+    <div class="snippet" id="try-box" hidden><pre id="tryout"></pre></div>
+
+    <h3>3. What you receive</h3>
+    <p>Streams send every chosen asset when you connect, then only assets whose price or status changed,
+      batched at most every 250&nbsp;ms. Each message looks like:</p>
+    <div class="snippet"><pre><code>{"type":"prices","timestamp":"2026-09-30T21:58:30.638Z","data":[
+  {"symbol":"GOLD","price":4161.6998,"status":"ok","sourcesUsed":5,"sourcesTotal":5,
+   "updatedAt":"2026-09-30T21:58:30.545Z"}
+]}</code></pre></div>
+    <div class="panel" style="margin-top:12px">
+      <table class="ref">
+        <thead><tr><th>Field</th><th>Meaning</th></tr></thead>
+        <tbody>
+          <tr><td><code>price</code></td><td>USD price: median of the exchanges that agree. <code>null</code> when no exchange has fresh data.</td></tr>
+          <tr><td><code>status</code></td><td><code>ok</code> = enough exchanges agree · <code>degraded</code> = fewer than the asset's minimum · <code>down</code> = no fresh data.</td></tr>
+          <tr><td><code>sourcesUsed</code> / <code>sourcesTotal</code></td><td>Exchanges contributing to the price, out of those configured for the asset.</td></tr>
+          <tr><td><code>updatedAt</code></td><td>Time of the freshest exchange quote used.</td></tr>
+          <tr><td><code>sources</code></td><td>Only with <code>detail=true</code>: each exchange's market, USD price and state (<code>used</code>, <code>outlier</code>, <code>stale</code>, <code>no_data</code>).</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>4. Endpoints</h3>
+    <div class="panel">
+      <table class="ref">
+        <thead><tr><th>Endpoint</th><th>Returns</th></tr></thead>
+        <tbody>
+          <tr><td><code>GET /v1/stream/prices?symbols=…</code></td><td>Server-Sent Events stream of the chosen assets. Unknown symbols return <code>400</code> with the list of available ones.</td></tr>
+          <tr><td><code>WS /v1/ws</code></td><td>WebSocket. Send <code>{"op":"subscribe","symbols":[…]}</code> or <code>{"op":"unsubscribe",…}</code> any time; <code>{"op":"list"}</code> shows your subscription; <code>{"op":"ping"}</code> gets a <code>pong</code>.</td></tr>
+          <tr><td><code>GET /v1/prices</code></td><td>Current snapshot of every asset, with per-exchange detail.</td></tr>
+          <tr><td><code>GET /v1/prices/:symbol</code></td><td>Current snapshot of one asset, e.g. <code>/v1/prices/btc</code>.</td></tr>
+          <tr><td><code>GET /v1/tokens</code></td><td>Available symbols.</td></tr>
+          <tr><td><code>GET /health</code></td><td>Service and exchange-stream health.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note">Limits: 20 concurrent streams per IP (SSE and WebSocket combined) and 600 HTTP requests per minute per IP.
+      Streams over the limit get HTTP 503. Clients that fall far behind are disconnected, so reconnect on close.</p>
+  </div>
+
   <footer>
     Prices are the median of fresh top-of-book mid prices across exchange websocket streams,
     with sources outside each asset's deviation limit rejected. USDT-quoted markets are converted
     with the live USDT/USD rate. Click an asset for per-source detail.
-    API: <code>/v1/prices</code>, <code>/v1/prices/:symbol</code>, <code>/v1/stream</code>.
   </footer>
 </main>
 
@@ -208,9 +308,167 @@
   function connect() {
     const es = new EventSource('v1/stream');
     es.onopen = () => { $('dot').className = 'dot on'; $('conn').textContent = 'live'; };
-    es.onmessage = (ev) => { window.__snap = JSON.parse(ev.data); render(window.__snap); };
+    es.onmessage = (ev) => {
+      window.__snap = JSON.parse(ev.data);
+      render(window.__snap);
+      if (!pickerReady) buildPicker(window.__snap.assets.map((a) => a.symbol));
+    };
     es.onerror = () => { $('dot').className = 'dot off'; $('conn').textContent = 'reconnecting…'; };
   }
+  // ---------- API explainer ----------
+  const base = location.origin + location.pathname.replace(/[^/]*$/, '');
+  const wsBase = base.replace(/^http/, 'ws');
+  let pickerReady = false;
+  let activeTab = 'sse-js';
+  let tryEs = null;
+
+  function selected() {
+    return [...document.querySelectorAll('#picker input:checked')].map((i) => i.value);
+  }
+
+  function buildPicker(symbols) {
+    pickerReady = true;
+    $('picker').innerHTML = symbols.map((sym, i) =>
+      `<label><input type="checkbox" value="${esc(sym)}"${i < 2 ? ' checked' : ''}> ${esc(sym)}</label>`).join('');
+    renderSnippet();
+  }
+
+  function renderSnippet() {
+    const syms = selected();
+    const detail = $('opt-detail').checked;
+    const list = syms.length ? syms.join(',') : 'BTC,ETH';
+    const q = `symbols=${list}${detail ? '&detail=true' : ''}`;
+    const sseUrl = `${base}v1/stream/prices?${q}`;
+    const wsUrl = `${wsBase}v1/ws${detail ? '?detail=true' : ''}`;
+    const jsonSyms = JSON.stringify(syms.length ? syms : ['BTC', 'ETH']);
+    const one = syms.length === 1;
+
+    const snippets = {
+      'sse-js': [
+`const es = new EventSource('${sseUrl}');
+
+es.onmessage = (event) => {
+  const msg = JSON.parse(event.data);
+  for (const p of msg.data) {
+    console.log(p.symbol, p.price, p.status);
+  }
+};
+// EventSource reconnects automatically if the connection drops.`,
+        'Works in any browser, or in Node 22+ where EventSource is built in.'],
+      'sse-curl': [
+`curl -N '${sseUrl}'`,
+        '-N turns off buffering so each update prints as it arrives.'],
+      'ws': [
+`const ws = new WebSocket('${wsUrl}');
+
+ws.onopen = () => {
+  ws.send(JSON.stringify({ op: 'subscribe', symbols: ${jsonSyms} }));
+};
+
+ws.onmessage = (event) => {
+  const msg = JSON.parse(event.data);
+  if (msg.type === 'prices') {
+    for (const p of msg.data) console.log(p.symbol, p.price, p.status);
+  }
+};
+
+// Change assets later without reconnecting:
+// ws.send(JSON.stringify({ op: 'unsubscribe', symbols: ['${esc((syms[0] ?? 'BTC'))}'] }));`,
+        'Use WebSocket when you want to add or remove assets without reconnecting.'],
+      'rest': [
+        one
+          ? `curl '${base}v1/prices/${syms[0].toLowerCase()}'`
+          : `curl '${base}v1/prices'\n\n# or one asset:\ncurl '${base}v1/prices/${(syms[0] ?? 'btc').toLowerCase()}'`,
+        one ? 'Returns the current price of this asset once.' : 'Returns the current price of every asset once; filter the ones you need.'],
+      'python': [
+`# pip install requests
+import json, requests
+
+url = '${sseUrl}'
+with requests.get(url, stream=True, timeout=60) as r:
+    for line in r.iter_lines(decode_unicode=True):
+        if line and line.startswith('data: '):
+            msg = json.loads(line[6:])
+            for p in msg['data']:
+                print(p['symbol'], p['price'], p['status'])`,
+        'Reads the same Server-Sent Events stream; add reconnect logic for long-running use.'],
+    };
+    const [code, note] = snippets[activeTab];
+    $('snippet').textContent = code.replace(/\\n/g, '\n');
+    $('snippet-note').textContent = syms.length ? note : 'No assets selected — showing BTC,ETH as an example. ' + note;
+  }
+
+  $('picker').addEventListener('change', renderSnippet);
+  $('opt-detail').addEventListener('change', renderSnippet);
+  $('pick-all').addEventListener('click', () => {
+    document.querySelectorAll('#picker input').forEach((i) => (i.checked = true));
+    renderSnippet();
+  });
+  $('pick-none').addEventListener('click', () => {
+    document.querySelectorAll('#picker input').forEach((i) => (i.checked = false));
+    renderSnippet();
+  });
+  $('tabs').addEventListener('click', (e) => {
+    const tab = e.target.closest('.tab');
+    if (!tab) return;
+    activeTab = tab.dataset.tab;
+    document.querySelectorAll('#tabs .tab').forEach((t) => t.setAttribute('aria-selected', String(t === tab)));
+    renderSnippet();
+  });
+
+  // Clipboard API needs a secure context (https or localhost); fall back to execCommand over plain http
+  $('copy').addEventListener('click', async () => {
+    const text = $('snippet').textContent;
+    let ok = false;
+    try {
+      await navigator.clipboard.writeText(text);
+      ok = true;
+    } catch {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      try { ok = document.execCommand('copy'); } catch { ok = false; }
+      ta.remove();
+    }
+    $('copy').textContent = ok ? 'Copied' : 'Select & copy';
+    setTimeout(() => ($('copy').textContent = 'Copy'), 1500);
+  });
+
+  function stopTry() {
+    if (tryEs) tryEs.close();
+    tryEs = null;
+    $('try-stop').hidden = true;
+    $('try-status').textContent = 'stopped';
+  }
+
+  $('try-start').addEventListener('click', () => {
+    const syms = selected();
+    if (!syms.length) {
+      $('try-status').textContent = 'Select at least one asset first.';
+      return;
+    }
+    if (tryEs) tryEs.close();
+    const url = `${base}v1/stream/prices?symbols=${syms.join(',')}${$('opt-detail').checked ? '&detail=true' : ''}`;
+    const out = $('tryout');
+    out.textContent = '';
+    $('try-box').hidden = false;
+    $('try-stop').hidden = false;
+    $('try-status').textContent = 'connecting…';
+    let count = 0;
+    tryEs = new EventSource(url);
+    tryEs.onopen = () => ($('try-status').textContent = `streaming ${syms.join(', ')}`);
+    tryEs.onmessage = (ev) => {
+      count++;
+      const lines = out.textContent.split('\n').filter(Boolean);
+      lines.unshift(ev.data);
+      out.textContent = lines.slice(0, 25).join('\n');
+      $('try-status').textContent = `streaming ${syms.join(', ')} · ${count} message${count === 1 ? '' : 's'}`;
+    };
+    tryEs.onerror = () => ($('try-status').textContent = 'connection error, retrying…');
+  });
+  $('try-stop').addEventListener('click', stopTry);
+
   connect();
 })();
 </script>
