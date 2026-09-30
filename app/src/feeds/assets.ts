@@ -31,7 +31,7 @@ export interface SourceConfig {
 export interface AssetConfig {
   symbol: string;
   name: string;
-  category: 'crypto' | 'equity' | 'metal' | 'reference';
+  category: 'crypto' | 'stablecoin' | 'equity' | 'etf' | 'metal' | 'reference';
   /** Minimum agreeing sources for status "ok" (fewer → "degraded") */
   minSources: number;
   /** Max fractional distance from the median before a source is rejected */
@@ -56,15 +56,26 @@ function crypto(base: string, feeds: CryptoFeed[]): SourceConfig[] {
   return feeds.map((f) => map[f]);
 }
 
-function tradfi(hlCoin: string, base: string): SourceConfig[] {
-  return [
+/** Perp markets for an equity/metal; `exclude` drops venues that don't list it */
+function tradfi(hlCoin: string, base: string, exclude: FeedId[] = []): SourceConfig[] {
+  const all: SourceConfig[] = [
     { feed: 'hyperliquid', market: `xyz:${hlCoin}`, quote: 'USD', kind: 'perp' },
     { feed: 'okx', market: `${base}-USDT-SWAP`, quote: 'USDT', kind: 'perp' },
     { feed: 'bybit-linear', market: `${base}USDT`, quote: 'USDT', kind: 'perp' },
     { feed: 'bitget-futures', market: `${base}USDT`, quote: 'USDT', kind: 'perp' },
     { feed: 'gate-futures', market: `${base}_USDT`, quote: 'USDT', kind: 'perp' },
   ];
+  return all.filter((s) => !exclude.includes(s.feed));
 }
+
+const equity = (symbol: string, name: string, exclude: FeedId[] = []): AssetConfig => ({
+  symbol,
+  name,
+  category: 'equity',
+  minSources: 3,
+  maxDeviation: 0.01,
+  sources: tradfi(symbol, symbol, exclude),
+});
 
 const ALL_CRYPTO: CryptoFeed[] = ['kraken', 'coinbase', 'bitstamp', 'bybit', 'hyperliquid', 'okx', 'bitget', 'gate'];
 
@@ -96,9 +107,41 @@ export const ASSETS: AssetConfig[] = [
     maxDeviation: 0.01,
     sources: crypto('FARTCOIN', ['kraken', 'coinbase', 'hyperliquid', 'bitget', 'gate']),
   },
-  { symbol: 'TSLA', name: 'Tesla', category: 'equity', minSources: 3, maxDeviation: 0.01, sources: tradfi('TSLA', 'TSLA') },
-  { symbol: 'NVDA', name: 'NVIDIA', category: 'equity', minSources: 3, maxDeviation: 0.01, sources: tradfi('NVDA', 'NVDA') },
-  { symbol: 'MSTR', name: 'Strategy', category: 'equity', minSources: 3, maxDeviation: 0.01, sources: tradfi('MSTR', 'MSTR') },
+  {
+    symbol: 'USDC',
+    name: 'USD Coin',
+    category: 'stablecoin',
+    minSources: 3,
+    maxDeviation: 0.002,
+    sources: [
+      { feed: 'kraken', market: 'USDC/USD', quote: 'USD', kind: 'spot' },
+      { feed: 'bitstamp', market: 'usdcusd', quote: 'USD', kind: 'spot' },
+      { feed: 'bybit-spot', market: 'USDCUSDT', quote: 'USDT', kind: 'spot' },
+      { feed: 'okx', market: 'USDC-USDT', quote: 'USDT', kind: 'spot' },
+      { feed: 'bitget-spot', market: 'USDCUSDT', quote: 'USDT', kind: 'spot' },
+      { feed: 'gate-spot', market: 'USDC_USDT', quote: 'USDT', kind: 'spot' },
+    ],
+  },
+  // Equities: priced from the underlying via perps (the same price xStocks such as TSLAx track)
+  equity('TSLA', 'Tesla'),
+  equity('NVDA', 'NVIDIA'),
+  equity('MSTR', 'Strategy'),
+  equity('AAPL', 'Apple'),
+  equity('GOOGL', 'Alphabet'),
+  equity('META', 'Meta Platforms'),
+  equity('AMD', 'AMD', ['bybit-linear']),
+  equity('COIN', 'Coinbase'),
+  equity('PLTR', 'Palantir'),
+  equity('SPCX', 'SpaceX'),
+  {
+    symbol: 'SPY',
+    name: 'SPDR S&P 500 ETF',
+    category: 'etf',
+    minSources: 3,
+    maxDeviation: 0.01,
+    // Hyperliquid lists the S&P 500 index (xyz:SP500), not the SPY ETF, so it is excluded
+    sources: tradfi('SPY', 'SPY', ['hyperliquid']),
+  },
   { symbol: 'GOLD', name: 'Gold (XAU)', category: 'metal', minSources: 3, maxDeviation: 0.005, sources: tradfi('GOLD', 'XAU') },
   { symbol: 'SILVER', name: 'Silver (XAG)', category: 'metal', minSources: 3, maxDeviation: 0.01, sources: tradfi('SILVER', 'XAG') },
 ];
