@@ -39,6 +39,13 @@
   td { border-bottom: 1px solid var(--line); }
   tr:last-child > td { border-bottom: 0; }
   .num { text-align: right; font-variant-numeric: tabular-nums; }
+  /* Fixed numeric column widths so changing values (e.g. 4 ms → 1,234 ms) don't shift the layout */
+  th.w-price { width: 13ch; }
+  th.w-count { width: 7ch; }
+  th.w-spread { width: 9ch; }
+  th.w-age { width: 9ch; }
+  th.w-quotes { width: 12ch; }
+  th.w-status { width: 11ch; }
   tr.asset { cursor: pointer; }
   tr.asset:hover > td { background: color-mix(in srgb, var(--accent) 6%, transparent); }
   .sym { font-weight: 700; }
@@ -114,8 +121,8 @@
     <table>
       <thead>
         <tr>
-          <th>Asset</th><th class="num">Price (USD)</th><th>Status</th><th class="num">Sources</th>
-          <th class="num">Spread</th><th class="num">Age</th><th>Sources in use</th>
+          <th>Asset</th><th class="num w-price">Price (USD)</th><th class="w-status">Status</th><th class="num w-count">Sources</th>
+          <th class="num w-spread">Spread</th><th class="num w-age">Age</th><th>Sources in use</th>
         </tr>
       </thead>
       <tbody id="assets"><tr><td colspan="7" class="muted">Waiting for data…</td></tr></tbody>
@@ -126,8 +133,8 @@
   <div class="panel">
     <table>
       <thead>
-        <tr><th>Stream</th><th>State</th><th class="num">Markets</th><th class="num">Quotes</th>
-          <th class="num">Last message</th><th class="num">Reconnects</th><th>Last error</th></tr>
+        <tr><th>Stream</th><th class="w-status">State</th><th class="num w-count">Markets</th><th class="num w-quotes">Quotes</th>
+          <th class="num w-age">Last message</th><th class="num w-count">Reconnects</th><th>Last error</th></tr>
       </thead>
       <tbody id="feeds"></tbody>
     </table>
@@ -267,8 +274,8 @@
           <td><div class="chips">${chips}</div></td>
         </tr>
         ${isOpen ? `<tr class="detail"><td colspan="7"><table>
-          <thead><tr><th>Exchange</th><th>Market</th><th>Type</th><th>Quote</th><th class="num">Bid</th><th class="num">Ask</th>
-            <th class="num">USD price</th><th class="num">vs. median</th><th class="num">Age</th><th>State</th></tr></thead>
+          <thead><tr><th>Exchange</th><th>Market</th><th>Type</th><th>Quote</th><th class="num w-price">Bid</th><th class="num w-price">Ask</th>
+            <th class="num w-price">USD price</th><th class="num w-spread">vs. median</th><th class="num w-age">Age</th><th class="w-status">State</th></tr></thead>
           <tbody>${sourceRows(a)}</tbody></table></td></tr>` : ''}`;
     }).join('');
   }
