@@ -187,6 +187,8 @@ export class PriceRelay extends EventEmitter {
 
     // Start composite oracles
     for (const symbol of Object.keys(COMPOSITE_CONFIGS) as Array<keyof typeof COMPOSITE_CONFIGS>) {
+      // Empty configs (stocks/metals) would fall back to CompositeOracle's BTC defaults
+      if (Object.keys(COMPOSITE_CONFIGS[symbol]).length === 0) continue;
       this.compositeClient.startOracle(symbol, COMPOSITE_CONFIGS[symbol]);
     }
     console.log('[Relay] ✓ Connected to Composite Oracle (BTC, ETH, SOL, HYPE, ZEC)');

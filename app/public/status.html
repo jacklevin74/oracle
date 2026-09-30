@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Oracle Price Status</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --panel: #ffffff; --text: #16181d; --muted: #6b7280; --line: #e5e7eb;
+    --ok: #15803d; --ok-bg: #dcfce7; --warn: #a16207; --warn-bg: #fef3c7; --bad: #b91c1c; --bad-bg: #fee2e2;
+    --idle: #6b7280; --idle-bg: #f3f4f6; --up: #15803d; --down: #b91c1c; --accent: #2563eb;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0e1116; --panel: #161b22; --text: #e6edf3; --muted: #8b949e; --line: #262c36;
+      --ok: #4ade80; --ok-bg: #0f2a1a; --warn: #facc15; --warn-bg: #2d2610; --bad: #f87171; --bad-bg: #2d1414;
+      --idle: #8b949e; --idle-bg: #1f252e; --up: #4ade80; --down: #f87171; --accent: #60a5fa;
+      color-scheme: dark;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+    font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 1200px; margin: 0 auto; padding: 24px 16px 48px; }
+  header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 12px 24px; margin-bottom: 20px; }
+  h1 { font-size: 20px; margin: 0; }
+  h2 { font-size: 15px; margin: 28px 0 10px; }
+  .meta { color: var(--muted); display: flex; flex-wrap: wrap; gap: 6px 18px; }
+  .meta b { color: var(--text); font-weight: 600; }
+  .live { display: inline-flex; align-items: center; gap: 6px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--idle); }
+  .dot.on { background: var(--ok); box-shadow: 0 0 0 3px var(--ok-bg); }
+  .dot.off { background: var(--bad); }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { padding: 9px 12px; text-align: left; white-space: nowrap; }
+  th { font-size: 12px; font-weight: 600; color: var(--muted); border-bottom: 1px solid var(--line); }
+  td { border-bottom: 1px solid var(--line); }
+  tr:last-child > td { border-bottom: 0; }
+  .num { text-align: right; font-variant-numeric: tabular-nums; }
+  tr.asset { cursor: pointer; }
+  tr.asset:hover > td { background: color-mix(in srgb, var(--accent) 6%, transparent); }
+  .sym { font-weight: 700; }
+  .name { color: var(--muted); font-size: 12px; }
+  .price { font-weight: 600; font-size: 15px; transition: color .6s; }
+  .price.up { color: var(--up); transition: none; }
+  .price.down { color: var(--down); transition: none; }
+  .pill { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+  .ok { color: var(--ok); background: var(--ok-bg); }
+  .degraded, .outlier { color: var(--warn); background: var(--warn-bg); }
+  .down, .stale { color: var(--bad); background: var(--bad-bg); }
+  .no_data { color: var(--idle); background: var(--idle-bg); }
+  .used { color: var(--ok); background: var(--ok-bg); }
+  .chips { display: flex; flex-wrap: wrap; gap: 4px; white-space: normal; }
+  .chip { font-size: 11px; padding: 1px 6px; border-radius: 4px; }
+  .caret { display: inline-block; width: 12px; color: var(--muted); transition: transform .15s; }
+  tr.open .caret { transform: rotate(90deg); }
+  tr.detail > td { padding: 0 12px 12px 36px; background: color-mix(in srgb, var(--accent) 3%, transparent); }
+  tr.detail table th, tr.detail table td { padding: 6px 10px; font-size: 13px; }
+  .muted { color: var(--muted); }
+  .err { color: var(--bad); font-size: 12px; white-space: normal; max-width: 360px; }
+  .cat { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+  footer { margin-top: 24px; color: var(--muted); font-size: 12px; }
+  code { font-size: 12px; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Oracle Price Status</h1>
+    <div class="meta">
+      <span class="live"><span id="dot" class="dot"></span><span id="conn">connecting…</span></span>
+      <span>Updated <b id="updated">—</b></span>
+      <span>USDT/USD <b id="usdt">—</b></span>
+      <span>Feeds <b id="feedcount">—</b></span>
+    </div>
+  </header>
+
+  <div class="panel">
+    <table>
+      <thead>
+        <tr>
+          <th>Asset</th><th class="num">Price (USD)</th><th>Status</th><th class="num">Sources</th>
+          <th class="num">Spread</th><th class="num">Age</th><th>Sources in use</th>
+        </tr>
+      </thead>
+      <tbody id="assets"><tr><td colspan="7" class="muted">Waiting for data…</td></tr></tbody>
+    </table>
+  </div>
+
+  <h2>Exchange streams</h2>
+  <div class="panel">
+    <table>
+      <thead>
+        <tr><th>Stream</th><th>State</th><th class="num">Markets</th><th class="num">Quotes</th>
+          <th class="num">Last message</th><th class="num">Reconnects</th><th>Last error</th></tr>
+      </thead>
+      <tbody id="feeds"></tbody>
+    </table>
+  </div>
+
+  <footer>
+    Prices are the median of fresh top-of-book mid prices across exchange websocket streams,
+    with sources outside each asset's deviation limit rejected. USDT-quoted markets are converted
+    with the live USDT/USD rate. Click an asset for per-source detail.
+    API: <code>/v1/prices</code>, <code>/v1/prices/:symbol</code>, <code>/v1/stream</code>.
+  </footer>
+</main>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const open = new Set();
+  const lastPrice = {};
+
+  function fmtPrice(p) {
+    if (p === null || p === undefined) return '—';
+    const d = p >= 1000 ? 2 : p >= 1 ? 4 : p >= 0.01 ? 5 : 8;
+    return p.toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d });
+  }
+  function fmtAge(ms) {
+    if (ms === null || ms === undefined) return '—';
+    if (ms < 1000) return ms + ' ms';
+    if (ms < 60000) return (ms / 1000).toFixed(1) + ' s';
+    return Math.round(ms / 60000) + ' min';
+  }
+  const fmtPct = (v) => (v === null || v === undefined) ? '—' : (v >= 0 ? '+' : '') + v.toFixed(3) + '%';
+
+  function spreadPct(a) {
+    const used = a.sources.filter((s) => s.state === 'used').map((s) => s.usdPrice);
+    if (used.length < 2 || !a.price) return null;
+    return (Math.max(...used) - Math.min(...used)) / a.price * 100;
+  }
+
+  function sourceRows(a) {
+    return a.sources.map((s) => `
+      <tr>
+        <td>${esc(s.venue)}</td><td><code>${esc(s.market)}</code></td><td>${esc(s.kind)}</td><td>${esc(s.quote)}</td>
+        <td class="num">${fmtPrice(s.bid)}</td><td class="num">${fmtPrice(s.ask)}</td>
+        <td class="num">${fmtPrice(s.usdPrice)}</td><td class="num">${fmtPct(s.deviationPct)}</td>
+        <td class="num">${fmtAge(s.ageMs)}</td><td><span class="pill ${esc(s.state)}">${esc(s.state.replace('_', ' '))}</span></td>
+      </tr>`).join('');
+  }
+
+  function renderAssets(snap) {
+    const now = Date.parse(snap.timestamp);
+    $('assets').innerHTML = snap.assets.map((a) => {
+      const prev = lastPrice[a.symbol];
+      const dir = prev === undefined || a.price === null || prev === a.price ? '' : a.price > prev ? 'up' : 'down';
+      lastPrice[a.symbol] = a.price;
+      const age = a.updatedAt ? now - Date.parse(a.updatedAt) : null;
+      const spread = spreadPct(a);
+      const chips = a.sources.map((s) =>
+        `<span class="chip ${esc(s.state)}" title="${esc(s.market)} · ${esc(s.state)}">${esc(s.venue)}</span>`).join('');
+      const isOpen = open.has(a.symbol);
+      return `
+        <tr class="asset${isOpen ? ' open' : ''}" data-sym="${esc(a.symbol)}">
+          <td><span class="caret">▸</span> <span class="sym">${esc(a.symbol)}</span>
+            <div class="name">${esc(a.name)} · <span class="cat">${esc(a.category)}</span></div></td>
+          <td class="num"><span class="price ${dir}">${fmtPrice(a.price)}</span></td>
+          <td><span class="pill ${esc(a.status)}">${esc(a.status)}</span></td>
+          <td class="num">${a.sourcesUsed}/${a.sourcesTotal}</td>
+          <td class="num">${spread === null ? '—' : spread.toFixed(3) + '%'}</td>
+          <td class="num">${fmtAge(age)}</td>
+          <td><div class="chips">${chips}</div></td>
+        </tr>
+        ${isOpen ? `<tr class="detail"><td colspan="7"><table>
+          <thead><tr><th>Exchange</th><th>Market</th><th>Type</th><th>Quote</th><th class="num">Bid</th><th class="num">Ask</th>
+            <th class="num">USD price</th><th class="num">vs. median</th><th class="num">Age</th><th>State</th></tr></thead>
+          <tbody>${sourceRows(a)}</tbody></table></td></tr>` : ''}`;
+    }).join('');
+  }
+
+  function renderFeeds(snap) {
+    const now = Date.parse(snap.timestamp);
+    $('feeds').innerHTML = snap.feeds.map((f) => `
+      <tr>
+        <td><b>${esc(f.venue)}</b><div class="name"><code>${esc(f.url)}</code></div></td>
+        <td><span class="pill ${f.connected ? 'ok' : 'down'}">${f.connected ? 'connected' : 'disconnected'}</span></td>
+        <td class="num">${f.markets.length}</td>
+        <td class="num">${f.quotesReceived.toLocaleString()}</td>
+        <td class="num">${fmtAge(f.lastMessageMs ? now - f.lastMessageMs : null)}</td>
+        <td class="num">${f.reconnects}</td>
+        <td class="err">${esc(f.lastError)}</td>
+      </tr>`).join('');
+    const up = snap.feeds.filter((f) => f.connected).length;
+    $('feedcount').textContent = `${up}/${snap.feeds.length} connected`;
+  }
+
+  function render(snap) {
+    renderAssets(snap);
+    renderFeeds(snap);
+    $('updated').textContent = new Date(snap.timestamp).toLocaleTimeString();
+    const u = snap.usdtUsd;
+    $('usdt').textContent = u.price ? `${u.price.toFixed(4)} (${u.sourcesUsed}/${u.sourcesTotal})` : 'n/a (assuming 1.0)';
+  }
+
+  $('assets').addEventListener('click', (e) => {
+    const row = e.target.closest('tr.asset');
+    if (!row) return;
+    const sym = row.dataset.sym;
+    open.has(sym) ? open.delete(sym) : open.add(sym);
+    if (window.__snap) renderAssets(window.__snap);
+  });
+
+  function connect() {
+    const es = new EventSource('v1/stream');
+    es.onopen = () => { $('dot').className = 'dot on'; $('conn').textContent = 'live'; };
+    es.onmessage = (ev) => { window.__snap = JSON.parse(ev.data); render(window.__snap); };
+    es.onerror = () => { $('dot').className = 'dot off'; $('conn').textContent = 'reconnecting…'; };
+  }
+  connect();
+})();
+</script>
+</body>
+</html>
