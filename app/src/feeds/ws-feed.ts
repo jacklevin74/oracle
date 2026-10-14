@@ -33,6 +33,7 @@ export interface FeedStatus {
 
 const WATCHDOG_MS = 30_000;
 const MAX_BACKOFF_MS = 30_000;
+const HANDSHAKE_TIMEOUT_MS = 10_000;
 
 export abstract class WsFeed extends EventEmitter {
   abstract readonly id: string;
@@ -121,7 +122,8 @@ export abstract class WsFeed extends EventEmitter {
   }
 
   private connect(): void {
-    const ws = new WebSocket(this.url);
+    // A hung handshake errors and closes after the timeout, which triggers a reconnect
+    const ws = new WebSocket(this.url, { handshakeTimeout: HANDSHAKE_TIMEOUT_MS });
     this.ws = ws;
 
     ws.on('open', () => {
@@ -142,12 +144,16 @@ export abstract class WsFeed extends EventEmitter {
       }
     });
 
+    // Listening for this event stops ws from aborting the handshake itself, so we
+    // must terminate; otherwise 'close' never fires and the feed never reconnects
     ws.on('unexpected-response', (_req, res) => {
       this.lastError = `HTTP ${res.statusCode} on connect`;
+      ws.terminate();
     });
 
     ws.on('error', (err: Error) => {
-      this.lastError = err.message;
+      // Keep the more useful HTTP status recorded by 'unexpected-response'
+      if (!this.lastError?.startsWith('HTTP ') || this.connected) this.lastError = err.message;
     });
 
     ws.on('close', () => {
