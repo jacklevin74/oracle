@@ -40,6 +40,8 @@ export abstract class WsFeed extends EventEmitter {
   abstract readonly venue: string;
   protected abstract readonly url: string;
   protected readonly pingIntervalMs: number = 20_000;
+  /** Send websocket protocol pings and count pongs as liveness (for streams that can be silent) */
+  protected readonly protocolPing: boolean = false;
 
   protected readonly markets: string[];
   private ws: WebSocket | null = null;
@@ -68,6 +70,8 @@ export abstract class WsFeed extends EventEmitter {
   protected pingPayload(): string | null {
     return null;
   }
+  /** Called when a protocol-level pong arrives (only with protocolPing) */
+  protected onPong(): void {}
 
   start(): void {
     if (!this.stopped || this.markets.length === 0) return;
@@ -135,6 +139,11 @@ export abstract class WsFeed extends EventEmitter {
       this.startTimers();
     });
 
+    ws.on('pong', () => {
+      this.lastMessageMs = Date.now();
+      this.onPong();
+    });
+
     ws.on('message', (data: WebSocket.Data) => {
       this.lastMessageMs = Date.now();
       try {
@@ -176,8 +185,11 @@ export abstract class WsFeed extends EventEmitter {
   private startTimers(): void {
     this.clearTimers();
     const ping = this.pingPayload();
-    if (ping !== null) {
-      this.pingTimer = setInterval(() => this.send(this.pingPayload() ?? ping), this.pingIntervalMs);
+    if (ping !== null || this.protocolPing) {
+      this.pingTimer = setInterval(() => {
+        if (ping !== null) this.send(this.pingPayload() ?? ping);
+        if (this.protocolPing) this.ws?.ping();
+      }, this.pingIntervalMs);
     }
     this.watchdogTimer = setInterval(() => {
       if (this.lastMessageMs !== null && Date.now() - this.lastMessageMs > WATCHDOG_MS) {

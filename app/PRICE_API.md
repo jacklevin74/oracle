@@ -1,9 +1,11 @@
 # Price API
 
 Live USD prices aggregated from exchange websocket streams (Kraken, Coinbase,
-Bitstamp, Bybit, Hyperliquid, OKX, Bitget, Gate). No API key required.
+Bitstamp, Bybit, Hyperliquid, OKX, Bitget, Gate) and the XDEX pool on the X1
+blockchain. No API key required.
 
-Assets: `BTC ETH SOL HYPE ZEC FARTCOIN TSLA NVDA MSTR GOLD SILVER`
+Assets: `BTC ETH SOL HYPE ZEC FARTCOIN XNT USDC TSLA NVDA MSTR AAPL GOOGL META
+AMD COIN PLTR SPCX SPY GOLD SILVER`
 (`GET /v1/tokens` returns the current list). Symbols are case-insensitive;
 `all` selects every asset.
 

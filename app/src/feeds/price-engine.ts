@@ -21,6 +21,7 @@ import {
   KrakenFeed,
   OkxFeed,
 } from './venues';
+import { XdexFeed } from './xdex';
 
 export type SourceState = 'used' | 'outlier' | 'stale' | 'no_data';
 export type AssetStatus = 'ok' | 'degraded' | 'down';
@@ -93,6 +94,7 @@ export class PriceEngine {
       new BitgetFeed('USDT-FUTURES', marketsFor('bitget-futures')),
       new GateFeed('spot', marketsFor('gate-spot')),
       new GateFeed('futures', marketsFor('gate-futures')),
+      new XdexFeed(marketsFor('xdex')),
     ];
 
     for (const f of feeds) {

@@ -17,7 +17,8 @@ export type FeedId =
   | 'bitget-spot'
   | 'bitget-futures'
   | 'gate-spot'
-  | 'gate-futures';
+  | 'gate-futures'
+  | 'xdex';
 
 export type QuoteCurrency = 'USD' | 'USDT';
 
@@ -106,6 +107,18 @@ export const ASSETS: AssetConfig[] = [
     minSources: 3,
     maxDeviation: 0.01,
     sources: crypto('FARTCOIN', ['kraken', 'coinbase', 'hyperliquid', 'bitget', 'gate']),
+  },
+  {
+    symbol: 'XNT',
+    name: 'X1 native token',
+    category: 'crypto',
+    // XNT trades only on X1 DEXes; one pool is the only source
+    minSources: 1,
+    maxDeviation: 0.05,
+    sources: [
+      // XDEX WXNT/USDC.X pool (token0 = WXNT, token1 = USDC.X, treated as USD)
+      { feed: 'xdex', market: 'CAJeVEoSm1QQZccnCqYu9cnNF7TTD2fcUA3E5HQoxRvR', quote: 'USD', kind: 'spot' },
+    ],
   },
   {
     symbol: 'USDC',
